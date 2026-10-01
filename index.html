@@ -158,7 +158,7 @@ button:disabled {
 
 #canvasContainer {
     width: 100%;
-    overflow: hidden;
+    overflow: auto;
     background: #000;
 }
 
@@ -219,6 +219,7 @@ button:disabled {
     >
 
     <select id="qualitySelect">
+
         <option value="35">
             Low — 35 characters wide
         </option>
@@ -232,22 +233,30 @@ button:disabled {
         </option>
 
         <option value="300">
-            Ultra — 300 characters wide
+            300 characters wide
         </option>
 
-        <option value="600">
-            Extreme — 600 characters wide
+        <option value="500">
+            500 characters wide
         </option>
 
-        <option value="1200">
-            ⚡ HYPER — 1200 characters wide
-        </option>
     </select>
 
-    <button id="convertBtn">Convert</button>
-    <button id="stopBtn">Stop</button>
-    <button id="downloadBtn">Download GIF</button>
-    <button id="copyBtn">Copy Frame</button>
+    <button id="convertBtn">
+        Convert
+    </button>
+
+    <button id="stopBtn">
+        Stop
+    </button>
+
+    <button id="downloadBtn">
+        Download GIF
+    </button>
+
+    <button id="copyBtn">
+        Copy Frame
+    </button>
 
 </div>
 
@@ -292,43 +301,71 @@ button:disabled {
 <canvas id="sourceCanvas"></canvas>
 <canvas id="frameCanvas"></canvas>
 
-
 <script>
 "use strict";
 
-
-/* =========================================================
-   CONFIG
-   ========================================================= */
+/*
+===========================================================
+CONFIGURATION
+===========================================================
+*/
 
 const CHAR_WIDTH = 6;
 const CHAR_HEIGHT = 10;
 const FONT_SIZE = 10;
 
-const MAX_ANIMATION_FRAMES = 200;
+/*
+ * Maximum character dimensions for animated input.
+ *
+ * The requested output limit is now 500 x 500 character
+ * cells, although normal GIF sizes will usually be much
+ * smaller because of browser memory limitations.
+ */
+const ANIMATED_MAX_WIDTH = 500;
+const ANIMATED_MAX_HEIGHT = 500;
 
-const ANIMATED_MAX_WIDTH = 800;
-const ANIMATED_MAX_HEIGHT = 150;
+const MAX_ANIMATION_FRAMES = 120;
 
 const MAX_OUTPUT_PIXELS = 160000000;
 
+const MIN_DISPLAY_SCALE = 0.20;
 
-/* =========================================================
-   ELEMENTS
-   ========================================================= */
 
-const imgUrl = document.getElementById("imgUrl");
-const fileInput = document.getElementById("fileInput");
-const qualitySelect = document.getElementById("qualitySelect");
+/*
+===========================================================
+ELEMENTS
+===========================================================
+*/
 
-const convertBtn = document.getElementById("convertBtn");
-const stopBtn = document.getElementById("stopBtn");
-const downloadBtn = document.getElementById("downloadBtn");
-const copyBtn = document.getElementById("copyBtn");
+const imgUrl =
+    document.getElementById("imgUrl");
 
-const info = document.getElementById("info");
-const warning = document.getElementById("warning");
-const errorBox = document.getElementById("error");
+const fileInput =
+    document.getElementById("fileInput");
+
+const qualitySelect =
+    document.getElementById("qualitySelect");
+
+const convertBtn =
+    document.getElementById("convertBtn");
+
+const stopBtn =
+    document.getElementById("stopBtn");
+
+const downloadBtn =
+    document.getElementById("downloadBtn");
+
+const copyBtn =
+    document.getElementById("copyBtn");
+
+const info =
+    document.getElementById("info");
+
+const warning =
+    document.getElementById("warning");
+
+const errorBox =
+    document.getElementById("error");
 
 const progressContainer =
     document.getElementById("progressContainer");
@@ -341,9 +378,6 @@ const outputWrapper =
 
 const previewCanvas =
     document.getElementById("previewCanvas");
-
-const canvasContainer =
-    document.getElementById("canvasContainer");
 
 const placeholder =
     document.getElementById("placeholder");
@@ -361,9 +395,11 @@ const frameCanvas =
     document.getElementById("frameCanvas");
 
 
-/* =========================================================
-   STATE
-   ========================================================= */
+/*
+===========================================================
+STATE
+===========================================================
+*/
 
 let renderToken = 0;
 
@@ -376,59 +412,106 @@ let currentWidth = 0;
 let currentHeight = 0;
 
 
-/* =========================================================
-   HELPERS
-   ========================================================= */
+/*
+===========================================================
+HELPERS
+===========================================================
+*/
 
 function nextFrame() {
-    return new Promise(resolve => requestAnimationFrame(resolve));
+
+    return new Promise(resolve => {
+
+        requestAnimationFrame(resolve);
+
+    });
+
+}
+
+
+function sleep(ms) {
+
+    return new Promise(resolve => {
+
+        setTimeout(resolve, ms);
+
+    });
+
 }
 
 
 function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
+
+    return Math.max(
+        min,
+        Math.min(max, value)
+    );
+
 }
 
 
 function setInfo(text) {
+
     info.textContent = text;
+
 }
 
 
 function showError(text) {
+
     errorBox.textContent = text;
+
     errorBox.style.display = "block";
+
 }
 
 
 function hideError() {
-    errorBox.style.display = "none";
+
     errorBox.textContent = "";
+
+    errorBox.style.display = "none";
+
 }
 
 
 function showWarning(text) {
+
     warning.textContent = text;
+
     warning.style.display = "block";
+
 }
 
 
 function hideWarning() {
-    warning.style.display = "none";
+
     warning.textContent = "";
+
+    warning.style.display = "none";
+
 }
 
 
 function showProgress(percent) {
-    progressContainer.style.display = "block";
+
+    progressContainer.style.display =
+        "block";
+
     progressBar.style.width =
         clamp(percent, 0, 100) + "%";
+
 }
 
 
 function hideProgress() {
-    progressContainer.style.display = "none";
-    progressBar.style.width = "0%";
+
+    progressContainer.style.display =
+        "none";
+
+    progressBar.style.width =
+        "0%";
+
 }
 
 
@@ -441,8 +524,15 @@ function clearOutput() {
     previewCanvas.style.height = "1px";
 
     placeholder.style.display = "block";
+
 }
 
+
+/*
+===========================================================
+FIT PREVIEW
+===========================================================
+*/
 
 function fitCanvasToScreen() {
 
@@ -468,6 +558,12 @@ function fitCanvasToScreen() {
             availableWidth / naturalWidth
         );
 
+    if (
+        scale < MIN_DISPLAY_SCALE
+    ) {
+        scale = MIN_DISPLAY_SCALE;
+    }
+
     previewCanvas.style.width =
         Math.round(
             naturalWidth * scale
@@ -477,12 +573,15 @@ function fitCanvasToScreen() {
         Math.round(
             previewCanvas.height * scale
         ) + "px";
+
 }
 
 
-/* =========================================================
-   RESOLUTION
-   ========================================================= */
+/*
+===========================================================
+RESOLUTION
+===========================================================
+*/
 
 function calculateResolution(
     sourceWidth,
@@ -505,16 +604,22 @@ function calculateResolution(
 
         width =
             Math.min(
-                parseInt(quality, 10),
+                parseInt(
+                    quality,
+                    10
+                ),
                 sourceWidth
             );
+
     }
 
     const imageRatio =
-        sourceHeight / sourceWidth;
+        sourceHeight /
+        sourceWidth;
 
     const characterCorrection =
-        CHAR_WIDTH / CHAR_HEIGHT;
+        CHAR_WIDTH /
+        CHAR_HEIGHT;
 
     let height =
         Math.max(
@@ -542,39 +647,52 @@ function calculateResolution(
             width =
                 Math.max(
                     1,
-                    Math.round(width * scale)
+                    Math.round(
+                        width * scale
+                    )
                 );
+
         }
+
     }
 
     return {
         width,
         height
     };
+
 }
 
 
-/* =========================================================
-   MIME DETECTION
-   ========================================================= */
+/*
+===========================================================
+MIME DETECTION
+===========================================================
+*/
 
 function guessMime(name) {
 
     const clean =
         name
-            .split("?")[0]
-            .split("#")[0]
-            .toLowerCase();
+        .split("?")[0]
+        .split("#")[0]
+        .toLowerCase();
 
-    if (clean.endsWith(".gif")) {
+    if (
+        clean.endsWith(".gif")
+    ) {
         return "image/gif";
     }
 
-    if (clean.endsWith(".webp")) {
+    if (
+        clean.endsWith(".webp")
+    ) {
         return "image/webp";
     }
 
-    if (clean.endsWith(".png")) {
+    if (
+        clean.endsWith(".png")
+    ) {
         return "image/png";
     }
 
@@ -585,17 +703,168 @@ function guessMime(name) {
         return "image/jpeg";
     }
 
-    if (clean.endsWith(".bmp")) {
-        return "image/bmp";
-    }
-
     return "";
 }
 
 
-/* =========================================================
-   GET INPUT
-   ========================================================= */
+/*
+===========================================================
+LOAD URL
+===========================================================
+*/
+
+async function getURLData(url) {
+
+    /*
+     * First try fetch.
+     *
+     * This works when the remote server permits CORS.
+     */
+    try {
+
+        const response =
+            await fetch(
+                url,
+                {
+                    mode: "cors"
+                }
+            );
+
+        if (
+            response.ok
+        ) {
+
+            const blob =
+                await response.blob();
+
+            return {
+                blob,
+                mime:
+                    blob.type ||
+                    guessMime(url)
+            };
+
+        }
+
+    } catch (err) {
+
+        /*
+         * Fall through to <img> loading.
+         */
+
+    }
+
+
+    /*
+     * Browser <img> fallback.
+     *
+     * This is useful for URLs that can be displayed by the
+     * browser but cannot be fetched by JavaScript.
+     */
+    return new Promise(
+        (resolve, reject) => {
+
+            const image =
+                new Image();
+
+            image.crossOrigin =
+                "anonymous";
+
+            image.onload =
+                async function () {
+
+                    try {
+
+                        /*
+                         * Try drawing it. This verifies that
+                         * the image is actually usable.
+                         */
+                        const canvas =
+                            document.createElement(
+                                "canvas"
+                            );
+
+                        canvas.width =
+                            image.naturalWidth;
+
+                        canvas.height =
+                            image.naturalHeight;
+
+                        const ctx =
+                            canvas.getContext(
+                                "2d"
+                            );
+
+                        ctx.drawImage(
+                            image,
+                            0,
+                            0
+                        );
+
+                        canvas.toBlob(
+                            function (blob) {
+
+                                if (!blob) {
+
+                                    reject(
+                                        new Error(
+                                            "The image could not be read."
+                                        )
+                                    );
+
+                                    return;
+                                }
+
+                                resolve({
+                                    blob,
+                                    mime:
+                                        blob.type ||
+                                        guessMime(url)
+                                });
+
+                            },
+                            "image/png"
+                        );
+
+                    } catch (err) {
+
+                        reject(
+                            new Error(
+                                "The image loaded, but GitHub Pages cannot read its pixels. " +
+                                "The remote server must permit CORS."
+                            )
+                        );
+
+                    }
+
+                };
+
+            image.onerror =
+                function () {
+
+                    reject(
+                        new Error(
+                            "Could not load the image URL. " +
+                            "For remote images, the host must allow browser access."
+                        )
+                    );
+
+                };
+
+            image.src =
+                url;
+
+        }
+    );
+
+}
+
+
+/*
+===========================================================
+INPUT
+===========================================================
+*/
 
 async function getInputSource() {
 
@@ -610,916 +879,140 @@ async function getInputSource() {
                 file.type ||
                 guessMime(file.name)
         };
+
     }
 
     const url =
         imgUrl.value.trim();
 
     if (!url) {
+
         throw new Error(
             "Please provide an image URL or choose a file."
         );
+
     }
 
-    const response =
-        await fetch(
-            url,
-            {
-                mode: "cors"
+    return await getURLData(url);
+
+}
+
+
+/*
+===========================================================
+IMAGE → IMAGE DATA
+===========================================================
+*/
+
+async function loadImageElement(blob) {
+
+    const url =
+        URL.createObjectURL(blob);
+
+    try {
+
+        const image =
+            new Image();
+
+        image.decoding =
+            "async";
+
+        await new Promise(
+            (resolve, reject) => {
+
+                image.onload =
+                    resolve;
+
+                image.onerror =
+                    function () {
+
+                        reject(
+                            new Error(
+                                "Browser could not decode this image."
+                            )
+                        );
+
+                    };
+
+                image.src =
+                    url;
+
             }
         );
 
-    if (!response.ok) {
-        throw new Error(
-            "Could not download image. HTTP " +
-            response.status
-        );
-    }
+        return image;
 
-    const blob =
-        await response.blob();
+    } finally {
 
-    return {
-        blob,
-        mime:
-            blob.type ||
-            guessMime(url)
-    };
-}
-
-
-/* =========================================================
-   GIF BINARY DECODER
-   =========================================================
-   
-   This is a small GIF89a/87a decoder.
-
-   It supports:
-   - animated GIF
-   - GIF transparency
-   - GIF disposal methods
-   - local/global palettes
-   - interlacing
-   - frame delays
-
-   It does NOT depend on WebCodecs.
-   ========================================================= */
-
-function readUInt16(data, pos) {
-    return data[pos] | (data[pos + 1] << 8);
-}
-
-
-function readSubBlocks(data, pos) {
-
-    const chunks = [];
-
-    while (pos < data.length) {
-
-        const size = data[pos++];
-
-        if (size === 0) {
-            break;
-        }
-
-        chunks.push(
-            data.subarray(pos, pos + size)
+        /*
+         * The image keeps its decoded data after loading.
+         */
+        setTimeout(
+            () => URL.revokeObjectURL(url),
+            1000
         );
 
-        pos += size;
     }
 
-    let total = 0;
-
-    for (const c of chunks) {
-        total += c.length;
-    }
-
-    const result =
-        new Uint8Array(total);
-
-    let offset = 0;
-
-    for (const c of chunks) {
-        result.set(c, offset);
-        offset += c.length;
-    }
-
-    return {
-        data: result,
-        pos
-    };
 }
 
 
-/* ---------------------------------------------------------
-   GIF LZW
-   --------------------------------------------------------- */
+/*
+===========================================================
+READ IMAGE FRAME
+===========================================================
+*/
 
-function decodeLZW(
-    compressed,
-    minCodeSize,
-    expectedSize
-) {
-
-    const clearCode =
-        1 << minCodeSize;
-
-    const endCode =
-        clearCode + 1;
-
-    let codeSize =
-        minCodeSize + 1;
-
-    let nextCode =
-        endCode + 1;
-
-    const dictionary =
-        new Array(4096);
-
-    let bitPosition = 0;
-
-    function readCode() {
-
-        let code = 0;
-
-        for (
-            let i = 0;
-            i < codeSize;
-            i++
-        ) {
-
-            const byteIndex =
-                bitPosition >> 3;
-
-            const bitIndex =
-                bitPosition & 7;
-
-            if (
-                byteIndex >=
-                compressed.length
-            ) {
-                return null;
-            }
-
-            if (
-                compressed[byteIndex] &
-                (1 << bitIndex)
-            ) {
-                code |= 1 << i;
-            }
-
-            bitPosition++;
-        }
-
-        return code;
-    }
-
-    function resetDictionary() {
-
-        for (
-            let i = 0;
-            i < clearCode;
-            i++
-        ) {
-            dictionary[i] = [i];
-        }
-
-        codeSize =
-            minCodeSize + 1;
-
-        nextCode =
-            endCode + 1;
-    }
-
-    resetDictionary();
-
-    const output =
-        new Uint8Array(expectedSize);
-
-    let outputPos = 0;
-
-    let previous = null;
-
-    while (
-        outputPos < expectedSize
-    ) {
-
-        const code =
-            readCode();
-
-        if (code === null) {
-            break;
-        }
-
-        if (code === clearCode) {
-
-            resetDictionary();
-
-            previous = null;
-
-            continue;
-        }
-
-        if (code === endCode) {
-            break;
-        }
-
-        let entry;
-
-        if (
-            code < nextCode &&
-            dictionary[code]
-        ) {
-
-            entry =
-                dictionary[code];
-
-        } else if (
-            code === nextCode &&
-            previous
-        ) {
-
-            entry =
-                previous.concat(
-                    previous[0]
-                );
-
-        } else {
-
-            throw new Error(
-                "Invalid GIF LZW data."
-            );
-        }
-
-        for (
-            let i = 0;
-            i < entry.length &&
-            outputPos < expectedSize;
-            i++
-        ) {
-
-            output[outputPos++] =
-                entry[i];
-        }
-
-        if (previous) {
-
-            dictionary[nextCode++] =
-                previous.concat(
-                    entry[0]
-                );
-
-            if (
-                nextCode ===
-                (1 << codeSize)
-            ) {
-
-                if (
-                    codeSize < 12
-                ) {
-                    codeSize++;
-                }
-            }
-        }
-
-        previous = entry;
-    }
-
-    return output;
-}
-
-
-/* ---------------------------------------------------------
-   GIF PALETTE
-   --------------------------------------------------------- */
-
-function readPalette(
-    data,
-    pos,
-    size
-) {
-
-    const palette =
-        new Uint8Array(
-            size * 3
-        );
-
-    const bytes =
-        size * 3;
-
-    if (
-        pos + bytes >
-        data.length
-    ) {
-        throw new Error(
-            "Invalid GIF color table."
-        );
-    }
-
-    palette.set(
-        data.subarray(
-            pos,
-            pos + bytes
-        )
-    );
-
-    return {
-        palette,
-        pos: pos + bytes
-    };
-}
-
-
-/* ---------------------------------------------------------
-   GIF FRAME COMPOSITING
-   --------------------------------------------------------- */
-
-function deinterlace(
-    pixels,
+function readImageFrame(
+    image,
     width,
     height
 ) {
 
-    const result =
-        new Uint8Array(
-            pixels.length
+    frameCanvas.width =
+        width;
+
+    frameCanvas.height =
+        height;
+
+    const ctx =
+        frameCanvas.getContext(
+            "2d",
+            {
+                willReadFrequently: true
+            }
         );
 
-    let sourceRow = 0;
-
-    const passes = [
-        [0, 8],
-        [4, 8],
-        [2, 4],
-        [1, 2]
-    ];
-
-    for (const [start, step] of passes) {
-
-        for (
-            let y = start;
-            y < height;
-            y += step
-        ) {
-
-            const src =
-                sourceRow * width;
-
-            const dst =
-                y * width;
-
-            result.set(
-                pixels.subarray(
-                    src,
-                    src + width
-                ),
-                dst
-            );
-
-            sourceRow++;
-        }
-    }
-
-    return result;
-}
-
-
-/* ---------------------------------------------------------
-   PARSE GIF
-   --------------------------------------------------------- */
-
-async function decodeGIF(
-    blob,
-    token
-) {
-
-    const buffer =
-        await blob.arrayBuffer();
-
-    const data =
-        new Uint8Array(buffer);
-
-    if (
-        data.length < 13
-    ) {
-        throw new Error(
-            "GIF file is too small."
-        );
-    }
-
-    const signature =
-        String.fromCharCode(
-            data[0],
-            data[1],
-            data[2]
-        );
-
-    if (
-        signature !== "GIF"
-    ) {
-        throw new Error(
-            "Not a valid GIF file."
-        );
-    }
-
-    const width =
-        readUInt16(data, 6);
-
-    const height =
-        readUInt16(data, 8);
-
-    if (
-        !width ||
-        !height
-    ) {
-        throw new Error(
-            "GIF has invalid dimensions."
-        );
-    }
-
-    const packed =
-        data[10];
-
-    const backgroundIndex =
-        data[11];
-
-    let pos = 13;
-
-    let globalPalette = null;
-
-    if (
-        packed & 0x80
-    ) {
-
-        const tableSize =
-            2 **
-            ((packed & 0x07) + 1);
-
-        const paletteResult =
-            readPalette(
-                data,
-                pos,
-                tableSize
-            );
-
-        globalPalette =
-            paletteResult.palette;
-
-        pos =
-            paletteResult.pos;
-    }
-
-    const canvasSize =
-        width * height;
-
-    let composited =
-        new Uint8ClampedArray(
-            canvasSize * 4
-        );
-
-    composited.fill(0);
-
-    const frames = [];
-
-    let gce = {
-        delay: 100,
-        transparent: false,
-        transparentIndex: 0,
-        disposal: 0
-    };
-
-    while (
-        pos < data.length
-    ) {
-
-        if (
-            token !== renderToken
-        ) {
-            throw new Error(
-                "Rendering stopped."
-            );
-        }
-
-        const block =
-            data[pos++];
-
-        /* Trailer */
-        if (block === 0x3B) {
-            break;
-        }
-
-        /* Extension */
-        if (block === 0x21) {
-
-            if (
-                pos >= data.length
-            ) {
-                break;
-            }
-
-            const label =
-                data[pos++];
-
-            /* Graphic Control Extension */
-            if (
-                label === 0xF9
-            ) {
-
-                const blockSize =
-                    data[pos++];
-
-                if (
-                    blockSize !== 4
-                ) {
-                    throw new Error(
-                        "Invalid GIF graphic control extension."
-                    );
-                }
-
-                const gcePacked =
-                    data[pos++];
-
-                const delayCs =
-                    readUInt16(
-                        data,
-                        pos
-                    );
-
-                pos += 2;
-
-                const transparentIndex =
-                    data[pos++];
-
-                pos++; // block terminator
-
-                gce = {
-                    delay:
-                        Math.max(
-                            20,
-                            delayCs * 10
-                        ),
-
-                    transparent:
-                        !!(
-                            gcePacked & 1
-                        ),
-
-                    transparentIndex,
-
-                    disposal:
-                        (
-                            gcePacked >> 2
-                        ) & 7
-                };
-
-                continue;
-            }
-
-            /* Application / comment / plain text */
-            while (
-                pos < data.length
-            ) {
-
-                const size =
-                    data[pos++];
-
-                if (
-                    size === 0
-                ) {
-                    break;
-                }
-
-                pos += size;
-            }
-
-            continue;
-        }
-
-        /* Image descriptor */
-        if (
-            block === 0x2C
-        ) {
-
-            if (
-                pos + 9 >
-                data.length
-            ) {
-                throw new Error(
-                    "Invalid GIF image descriptor."
-                );
-            }
-
-            const left =
-                readUInt16(
-                    data,
-                    pos
-                );
-
-            const top =
-                readUInt16(
-                    data,
-                    pos + 2
-                );
-
-            const frameWidth =
-                readUInt16(
-                    data,
-                    pos + 4
-                );
-
-            const frameHeight =
-                readUInt16(
-                    data,
-                    pos + 6
-                );
-
-            const imagePacked =
-                data[pos + 8];
-
-            pos += 9;
-
-            let palette =
-                globalPalette;
-
-            if (
-                imagePacked & 0x80
-            ) {
-
-                const tableSize =
-                    2 **
-                    ((imagePacked & 0x07) + 1);
-
-                const paletteResult =
-                    readPalette(
-                        data,
-                        pos,
-                        tableSize
-                    );
-
-                palette =
-                    paletteResult.palette;
-
-                pos =
-                    paletteResult.pos;
-            }
-
-            if (!palette) {
-                throw new Error(
-                    "GIF frame has no color table."
-                );
-            }
-
-            const minCodeSize =
-                data[pos++];
-
-            const blockResult =
-                readSubBlocks(
-                    data,
-                    pos
-                );
-
-            const compressed =
-                blockResult.data;
-
-            pos =
-                blockResult.pos;
-
-            const pixelCount =
-                frameWidth *
-                frameHeight;
-
-            let indices =
-                decodeLZW(
-                    compressed,
-                    minCodeSize,
-                    pixelCount
-                );
-
-            if (
-                imagePacked & 0x40
-            ) {
-
-                indices =
-                    deinterlace(
-                        indices,
-                        frameWidth,
-                        frameHeight
-                    );
-            }
-
-            /*
-             * Save previous canvas when disposal=3.
-             */
-            let previousCanvas = null;
-
-            if (
-                gce.disposal === 3
-            ) {
-
-                previousCanvas =
-                    new Uint8ClampedArray(
-                        composited
-                    );
-            }
-
-            /*
-             * Draw frame onto composited canvas.
-             */
-            for (
-                let y = 0;
-                y < frameHeight;
-                y++
-            ) {
-
-                const destY =
-                    top + y;
-
-                if (
-                    destY < 0 ||
-                    destY >= height
-                ) {
-                    continue;
-                }
-
-                for (
-                    let x = 0;
-                    x < frameWidth;
-                    x++
-                ) {
-
-                    const destX =
-                        left + x;
-
-                    if (
-                        destX < 0 ||
-                        destX >= width
-                    ) {
-                        continue;
-                    }
-
-                    const sourceIndex =
-                        indices[
-                            y * frameWidth + x
-                        ];
-
-                    if (
-                        gce.transparent &&
-                        sourceIndex ===
-                        gce.transparentIndex
-                    ) {
-                        continue;
-                    }
-
-                    const paletteIndex =
-                        sourceIndex * 3;
-
-                    if (
-                        paletteIndex + 2 >=
-                        palette.length
-                    ) {
-                        continue;
-                    }
-
-                    const destIndex =
-                        (
-                            destY * width +
-                            destX
-                        ) * 4;
-
-                    composited[destIndex] =
-                        palette[paletteIndex];
-
-                    composited[destIndex + 1] =
-                        palette[paletteIndex + 1];
-
-                    composited[destIndex + 2] =
-                        palette[paletteIndex + 2];
-
-                    composited[destIndex + 3] =
-                        255;
-                }
-            }
-
-            /*
-             * Copy complete composited frame.
-             */
-            frames.push({
-                pixels:
-                    new Uint8ClampedArray(
-                        composited
-                    ),
-
-                delay:
-                    gce.delay
-            });
-
-            /*
-             * Disposal.
-             */
-            if (
-                gce.disposal === 2
-            ) {
-
-                for (
-                    let y = 0;
-                    y < frameHeight;
-                    y++
-                ) {
-
-                    const destY =
-                        top + y;
-
-                    if (
-                        destY < 0 ||
-                        destY >= height
-                    ) {
-                        continue;
-                    }
-
-                    for (
-                        let x = 0;
-                        x < frameWidth;
-                        x++
-                    ) {
-
-                        const destX =
-                            left + x;
-
-                        if (
-                            destX < 0 ||
-                            destX >= width
-                        ) {
-                            continue;
-                        }
-
-                        const index =
-                            (
-                                destY * width +
-                                destX
-                            ) * 4;
-
-                        composited[index] = 0;
-                        composited[index + 1] = 0;
-                        composited[index + 2] = 0;
-                        composited[index + 3] = 0;
-                    }
-                }
-
-            } else if (
-                gce.disposal === 3 &&
-                previousCanvas
-            ) {
-
-                composited =
-                    previousCanvas;
-            }
-
-            gce = {
-                delay: 100,
-                transparent: false,
-                transparentIndex: 0,
-                disposal: 0
-            };
-
-            if (
-                frames.length >=
-                MAX_ANIMATION_FRAMES
-            ) {
-
-                showWarning(
-                    `GIF contains more than ` +
-                    `${MAX_ANIMATION_FRAMES} frames. ` +
-                    `Only the first ` +
-                    `${MAX_ANIMATION_FRAMES} frames will be converted.`
-                );
-
-                break;
-            }
-
-            await nextFrame();
-        }
-    }
-
-    if (
-        !frames.length
-    ) {
-        throw new Error(
-            "No image frames were found in the GIF."
-        );
-    }
-
-    return {
+    ctx.clearRect(
+        0,
+        0,
         width,
-        height,
-        frames
-    };
+        height
+    );
+
+    ctx.drawImage(
+        image,
+        0,
+        0,
+        width,
+        height
+    );
+
+    return ctx.getImageData(
+        0,
+        0,
+        width,
+        height
+    );
+
 }
 
 
-/* =========================================================
-   IMAGE DATA → BINARY CANVAS
-   ========================================================= */
+/*
+===========================================================
+BINARY CANVAS RENDER
+===========================================================
+*/
 
 function renderBinaryFrame(
     imageData,
@@ -1529,10 +1022,12 @@ function renderBinaryFrame(
 ) {
 
     const outputWidth =
-        asciiWidth * CHAR_WIDTH;
+        asciiWidth *
+        CHAR_WIDTH;
 
     const outputHeight =
-        asciiHeight * CHAR_HEIGHT;
+        asciiHeight *
+        CHAR_HEIGHT;
 
     previewCanvas.width =
         outputWidth;
@@ -1541,9 +1036,12 @@ function renderBinaryFrame(
         outputHeight;
 
     const ctx =
-        previewCanvas.getContext("2d");
+        previewCanvas.getContext(
+            "2d"
+        );
 
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle =
+        "#000000";
 
     ctx.fillRect(
         0,
@@ -1555,7 +1053,8 @@ function renderBinaryFrame(
     ctx.font =
         `${FONT_SIZE}px "Courier New", monospace`;
 
-    ctx.textBaseline = "top";
+    ctx.textBaseline =
+        "top";
 
     for (
         let y = 0;
@@ -1577,7 +1076,9 @@ function renderBinaryFrame(
 
             const index =
                 (
-                    y * asciiWidth + x
+                    y *
+                    asciiWidth +
+                    x
                 ) * 4;
 
             const r =
@@ -1593,8 +1094,7 @@ function renderBinaryFrame(
                 imageData.data[index + 3];
 
             /*
-             * ONLY fully transparent pixels
-             * become blank.
+             * Only fully transparent pixels are blank.
              */
             if (
                 alpha === 0
@@ -1608,124 +1108,60 @@ function renderBinaryFrame(
                 0.114 * b;
 
             const char =
-                gray < 128 ? "1" : "0";
+                gray < 128
+                    ? "1"
+                    : "0";
 
+            /*
+             * Force fully opaque output.
+             *
+             * This is important for the GIF encoder because
+             * partially transparent text can otherwise become
+             * invisible after palette conversion.
+             */
             ctx.fillStyle =
-                `rgba(${r},${g},${b},${alpha / 255})`;
+                `rgb(${r},${g},${b})`;
 
             ctx.fillText(
                 char,
                 x * CHAR_WIDTH,
                 y * CHAR_HEIGHT
             );
+
         }
+
     }
 
     return true;
+
 }
 
 
-/* =========================================================
-   GIF FRAME → ASCII IMAGE DATA
-   ========================================================= */
+/*
+===========================================================
+STATIC IMAGE
+===========================================================
+*/
 
-function gifFrameToImageData(
-    frame,
-    sourceWidth,
-    sourceHeight,
-    asciiWidth,
-    asciiHeight
-) {
-
-    frameCanvas.width =
-        asciiWidth;
-
-    frameCanvas.height =
-        asciiHeight;
-
-    const ctx =
-        frameCanvas.getContext(
-            "2d",
-            {
-                willReadFrequently: true
-            }
-        );
-
-    const tempCanvas =
-        document.createElement("canvas");
-
-    tempCanvas.width =
-        sourceWidth;
-
-    tempCanvas.height =
-        sourceHeight;
-
-    const tempCtx =
-        tempCanvas.getContext("2d");
-
-    const sourceImageData =
-        new ImageData(
-            frame.pixels,
-            sourceWidth,
-            sourceHeight
-        );
-
-    tempCtx.putImageData(
-        sourceImageData,
-        0,
-        0
-    );
-
-    ctx.clearRect(
-        0,
-        0,
-        asciiWidth,
-        asciiHeight
-    );
-
-    ctx.drawImage(
-        tempCanvas,
-        0,
-        0,
-        asciiWidth,
-        asciiHeight
-    );
-
-    return ctx.getImageData(
-        0,
-        0,
-        asciiWidth,
-        asciiHeight
-    );
-}
-
-
-/* =========================================================
-   STATIC IMAGE
-   ========================================================= */
-
-async function decodeStatic(
+async function renderStatic(
     blob,
     token
 ) {
 
-    const bitmap =
-        await createImageBitmap(blob);
+    const image =
+        await loadImageElement(blob);
 
     if (
         token !== renderToken
     ) {
-
-        bitmap.close();
-
         return null;
     }
 
     const sourceWidth =
-        bitmap.width;
+        image.naturalWidth;
 
     const sourceHeight =
-        bitmap.height;
+        image.naturalHeight;
 
     const resolution =
         calculateResolution(
@@ -1741,59 +1177,26 @@ async function decodeStatic(
     const asciiHeight =
         resolution.height;
 
-    const pixels =
+    const outputPixels =
         asciiWidth *
         CHAR_WIDTH *
         asciiHeight *
         CHAR_HEIGHT;
 
     if (
-        pixels >
+        outputPixels >
         MAX_OUTPUT_PIXELS
     ) {
 
-        bitmap.close();
-
         throw new Error(
-            "Requested resolution is too large."
+            "The requested output is too large."
         );
+
     }
 
-    sourceCanvas.width =
-        asciiWidth;
-
-    sourceCanvas.height =
-        asciiHeight;
-
-    const ctx =
-        sourceCanvas.getContext(
-            "2d",
-            {
-                willReadFrequently: true
-            }
-        );
-
-    ctx.clearRect(
-        0,
-        0,
-        asciiWidth,
-        asciiHeight
-    );
-
-    ctx.drawImage(
-        bitmap,
-        0,
-        0,
-        asciiWidth,
-        asciiHeight
-    );
-
-    bitmap.close();
-
     const imageData =
-        ctx.getImageData(
-            0,
-            0,
+        readImageFrame(
+            image,
             asciiWidth,
             asciiHeight
         );
@@ -1828,753 +1231,124 @@ async function decodeStatic(
         width: asciiWidth,
         height: asciiHeight
     };
+
 }
 
 
-/* =========================================================
-   GIF ENCODER
-   =========================================================
-   
-   Pure JavaScript GIF encoder.
-   
-   No worker.
-   No external library.
-   No server.
-   ========================================================= */
+/*
+===========================================================
+ANIMATED GIF DECODER
+===========================================================
 
+No WebCodecs.
+No ImageDecoder.
+No gif.worker.js.
 
-/* ---------------------------------------------------------
-   Bit writer
-   --------------------------------------------------------- */
+The browser itself decodes the GIF.
 
-class BitWriter {
+The GIF is placed in an Image element and its rendered
+animation is sampled from the browser's compositor.
 
-    constructor() {
-        this.bytes = [];
-        this.current = 0;
-        this.bits = 0;
-    }
+This is intentionally compatible with static hosting such
+as GitHub Pages.
+===========================================================
+*/
 
-    write(value, count) {
-
-        while (count > 0) {
-
-            const free =
-                8 - this.bits;
-
-            const take =
-                Math.min(
-                    free,
-                    count
-                );
-
-            const mask =
-                (1 << take) - 1;
-
-            this.current |=
-                (value & mask) <<
-                this.bits;
-
-            value >>=
-                take;
-
-            count -=
-                take;
-
-            this.bits +=
-                take;
-
-            if (
-                this.bits === 8
-            ) {
-
-                this.bytes.push(
-                    this.current
-                );
-
-                this.current = 0;
-                this.bits = 0;
-            }
-        }
-    }
-
-    finish() {
-
-        if (
-            this.bits > 0
-        ) {
-
-            this.bytes.push(
-                this.current
-            );
-        }
-
-        return new Uint8Array(
-            this.bytes
-        );
-    }
-}
-
-
-/* ---------------------------------------------------------
-   GIF LZW encoder
-   --------------------------------------------------------- */
-
-function encodeLZW(
-    indices,
-    minCodeSize
-) {
-
-    const clearCode =
-        1 << minCodeSize;
-
-    const endCode =
-        clearCode + 1;
-
-    let codeSize =
-        minCodeSize + 1;
-
-    let nextCode =
-        endCode + 1;
-
-    const dictionary =
-        new Map();
-
-    const writer =
-        new BitWriter();
-
-    function reset() {
-
-        dictionary.clear();
-
-        codeSize =
-            minCodeSize + 1;
-
-        nextCode =
-            endCode + 1;
-    }
-
-    function writeCode(code) {
-
-        writer.write(
-            code,
-            codeSize
-        );
-    }
-
-    reset();
-
-    writeCode(clearCode);
-
-    if (
-        indices.length === 0
-    ) {
-
-        writeCode(endCode);
-
-        return writer.finish();
-    }
-
-    let prefix =
-        indices[0];
-
-    for (
-        let i = 1;
-        i < indices.length;
-        i++
-    ) {
-
-        const value =
-            indices[i];
-
-        const key =
-            prefix + "," + value;
-
-        if (
-            dictionary.has(key)
-        ) {
-
-            prefix =
-                dictionary.get(key);
-
-            continue;
-        }
-
-        writeCode(prefix);
-
-        if (
-            nextCode < 4096
-        ) {
-
-            dictionary.set(
-                key,
-                nextCode++
-            );
-
-            if (
-                nextCode ===
-                (1 << codeSize)
-            ) {
-
-                if (
-                    codeSize < 12
-                ) {
-                    codeSize++;
-                }
-            }
-
-        } else {
-
-            writeCode(clearCode);
-
-            reset();
-        }
-
-        prefix =
-            value;
-    }
-
-    writeCode(prefix);
-    writeCode(endCode);
-
-    return writer.finish();
-}
-
-
-/* ---------------------------------------------------------
-   Byte utilities
-   --------------------------------------------------------- */
-
-function push16(array, value) {
-
-    array.push(
-        value & 255,
-        (value >> 8) & 255
-    );
-}
-
-
-function pushBytes(
-    array,
-    bytes
-) {
-
-    for (
-        let i = 0;
-        i < bytes.length;
-        i++
-    ) {
-        array.push(bytes[i]);
-    }
-}
-
-
-/* ---------------------------------------------------------
-   Convert RGB → palette index
-   --------------------------------------------------------- */
-
-function buildPalette(
-    imageData
-) {
-
-    /*
-     * Binary art only needs:
-     *
-     * 0 = black
-     * 1 = white
-     *
-     * But colored output requires colors.
-     *
-     * We quantize the source colors to a
-     * 256-color palette using a fast histogram.
-     */
-
-    const pixels =
-        imageData.data;
-
-    const colorMap =
-        new Map();
-
-    const colors = [];
-
-    for (
-        let i = 0;
-        i < pixels.length;
-        i += 4
-    ) {
-
-        if (
-            pixels[i + 3] === 0
-        ) {
-            continue;
-        }
-
-        /*
-         * Quantize to 5 bits/channel.
-         */
-        const r =
-            pixels[i] >> 3;
-
-        const g =
-            pixels[i + 1] >> 3;
-
-        const b =
-            pixels[i + 2] >> 3;
-
-        const key =
-            (r << 10) |
-            (g << 5) |
-            b;
-
-        let item =
-            colorMap.get(key);
-
-        if (!item) {
-
-            item = {
-                key,
-                count: 1,
-                r: pixels[i],
-                g: pixels[i + 1],
-                b: pixels[i + 2]
-            };
-
-            colorMap.set(
-                key,
-                item
-            );
-
-            colors.push(item);
-
-        } else {
-
-            item.count++;
-        }
-    }
-
-    /*
-     * Keep the most common 254 colors.
-     *
-     * Index 0 = black fallback.
-     * Index 1 = transparent/unused fallback.
-     */
-    colors.sort(
-        (a, b) =>
-            b.count - a.count
-    );
-
-    const selected =
-        colors.slice(0, 254);
-
-    const palette =
-        new Uint8Array(
-            256 * 3
-        );
-
-    /*
-     * Background/fallback colors.
-     */
-    palette[0] = 0;
-    palette[1] = 0;
-    palette[2] = 0;
-
-    for (
-        let i = 0;
-        i < selected.length;
-        i++
-    ) {
-
-        palette[
-            (i + 1) * 3
-        ] =
-            selected[i].r;
-
-        palette[
-            (i + 1) * 3 + 1
-        ] =
-            selected[i].g;
-
-        palette[
-            (i + 1) * 3 + 2
-        ] =
-            selected[i].b;
-    }
-
-    /*
-     * Build lookup.
-     */
-    const lookup =
-        new Map();
-
-    for (
-        let i = 0;
-        i < selected.length;
-        i++
-    ) {
-
-        lookup.set(
-            selected[i].key,
-            i + 1
-        );
-    }
-
-    /*
-     * Map pixels.
-     */
-    const indices =
-        new Uint8Array(
-            pixels.length / 4
-        );
-
-    for (
-        let i = 0, p = 0;
-        i < pixels.length;
-        i += 4, p++
-    ) {
-
-        const alpha =
-            pixels[i + 3];
-
-        if (
-            alpha === 0
-        ) {
-
-            indices[p] = 0;
-            continue;
-        }
-
-        const r =
-            pixels[i] >> 3;
-
-        const g =
-            pixels[i + 1] >> 3;
-
-        const b =
-            pixels[i + 2] >> 3;
-
-        const key =
-            (r << 10) |
-            (g << 5) |
-            b;
-
-        if (
-            lookup.has(key)
-        ) {
-
-            indices[p] =
-                lookup.get(key);
-
-        } else {
-
-            /*
-             * Nearest color.
-             */
-            let best = 1;
-            let bestDistance =
-                Infinity;
-
-            for (
-                let c = 0;
-                c < selected.length;
-                c++
-            ) {
-
-                const dr =
-                    pixels[i] -
-                    selected[c].r;
-
-                const dg =
-                    pixels[i + 1] -
-                    selected[c].g;
-
-                const db =
-                    pixels[i + 2] -
-                    selected[c].b;
-
-                const distance =
-                    dr * dr +
-                    dg * dg +
-                    db * db;
-
-                if (
-                    distance <
-                    bestDistance
-                ) {
-
-                    bestDistance =
-                        distance;
-
-                    best =
-                        c + 1;
-                }
-            }
-
-            indices[p] =
-                best;
-        }
-    }
-
-    return {
-        palette,
-        indices
-    };
-}
-
-
-/* ---------------------------------------------------------
-   Encode GIF
-   --------------------------------------------------------- */
-
-async function encodeGIF(
-    frames,
-    width,
-    height,
-    delays,
-    token
-) {
-
-    const bytes = [];
-
-    /*
-     * Header.
-     */
-    pushBytes(
-        bytes,
-        new TextEncoder().encode(
-            "GIF89a"
-        )
-    );
-
-    /*
-     * Logical Screen Descriptor.
-     *
-     * 256 color global palette.
-     */
-    push16(bytes, width);
-    push16(bytes, height);
-
-    /*
-     * GCT flag = 1
-     * Color resolution = 7
-     * Sort = 0
-     * GCT size = 7 => 256 colors
-     */
-    bytes.push(0xF7);
-
-    /*
-     * Background index.
-     */
-    bytes.push(0);
-
-    /*
-     * Pixel aspect ratio.
-     */
-    bytes.push(0);
-
-    /*
-     * Global palette from first frame.
-     */
-    const firstPalette =
-        buildPalette(frames[0]);
-
-    pushBytes(
-        bytes,
-        firstPalette.palette
-    );
-
-    /*
-     * Each frame.
-     */
-    for (
-        let frameIndex = 0;
-        frameIndex < frames.length;
-        frameIndex++
-    ) {
-
-        if (
-            token !== renderToken
-        ) {
-
-            throw new Error(
-                "Rendering stopped."
-            );
-        }
-
-        setInfo(
-            `Encoding GIF frame ` +
-            `${frameIndex + 1} / ${frames.length}`
-        );
-
-        showProgress(
-            80 +
-            (
-                frameIndex /
-                frames.length
-            ) * 20
-        );
-
-        const paletteData =
-            buildPalette(
-                frames[frameIndex]
-            );
-
-        /*
-         * Graphic Control Extension.
-         *
-         * No transparency:
-         * transparent source pixels are
-         * rendered black.
-         */
-        bytes.push(
-            0x21,
-            0xF9,
-            0x04,
-            0x00
-        );
-
-        const delayCs =
-            Math.max(
-                2,
-                Math.round(
-                    delays[frameIndex] / 10
-                )
-            );
-
-        push16(
-            bytes,
-            delayCs
-        );
-
-        bytes.push(
-            0,
-            0
-        );
-
-        /*
-         * Image descriptor.
-         */
-        bytes.push(0x2C);
-
-        push16(bytes, 0);
-        push16(bytes, 0);
-
-        push16(bytes, width);
-        push16(bytes, height);
-
-        /*
-         * Local color table.
-         */
-        bytes.push(0x87);
-
-        pushBytes(
-            bytes,
-            paletteData.palette
-        );
-
-        /*
-         * LZW.
-         */
-        const minCodeSize = 8;
-
-        bytes.push(
-            minCodeSize
-        );
-
-        const compressed =
-            encodeLZW(
-                paletteData.indices,
-                minCodeSize
-            );
-
-        /*
-         * Sub-blocks.
-         */
-        let offset = 0;
-
-        while (
-            offset <
-            compressed.length
-        ) {
-
-            const size =
-                Math.min(
-                    255,
-                    compressed.length -
-                    offset
-                );
-
-            bytes.push(size);
-
-            for (
-                let i = 0;
-                i < size;
-                i++
-            ) {
-
-                bytes.push(
-                    compressed[
-                        offset + i
-                    ]
-                );
-            }
-
-            offset += size;
-
-            await nextFrame();
-        }
-
-        bytes.push(0);
-
-        await nextFrame();
-    }
-
-    /*
-     * Trailer.
-     */
-    bytes.push(0x3B);
-
-    return new Blob(
-        [
-            new Uint8Array(bytes)
-        ],
-        {
-            type: "image/gif"
-        }
-    );
-}
-
-
-/* =========================================================
-   RENDER GIF
-   ========================================================= */
-
-async function processGIF(
+async function decodeAnimatedByPlayback(
     blob,
     token
 ) {
 
-    setInfo(
-        "Reading GIF..."
-    );
+    const url =
+        URL.createObjectURL(blob);
 
-    const decoded =
-        await decodeGIF(
-            blob,
-            token
-        );
+    const image =
+        new Image();
+
+    image.decoding =
+        "async";
+
+    image.src =
+        url;
+
+    await new Promise(
+        (resolve, reject) => {
+
+            image.onload =
+                resolve;
+
+            image.onerror =
+                function () {
+
+                    reject(
+                        new Error(
+                            "The browser could not decode this GIF."
+                        )
+                    );
+
+                };
+
+        }
+    );
 
     if (
         token !== renderToken
     ) {
+
+        URL.revokeObjectURL(url);
+
         throw new Error(
             "Rendering stopped."
         );
+
     }
+
+    const sourceWidth =
+        image.naturalWidth;
+
+    const sourceHeight =
+        image.naturalHeight;
+
+    if (
+        !sourceWidth ||
+        !sourceHeight
+    ) {
+
+        URL.revokeObjectURL(url);
+
+        throw new Error(
+            "Could not determine the animated image dimensions."
+        );
+
+    }
+
+    return {
+        image,
+        url,
+        sourceWidth,
+        sourceHeight
+    };
+
+}
+
+
+/*
+===========================================================
+SAMPLE GIF ANIMATION
+===========================================================
+*/
+
+async function captureAnimatedGIF(
+    image,
+    sourceWidth,
+    sourceHeight,
+    token
+) {
 
     const resolution =
         calculateResolution(
-            decoded.width,
-            decoded.height,
+            sourceWidth,
+            sourceHeight,
             qualitySelect.value,
             true
         );
@@ -2591,57 +1365,48 @@ async function processGIF(
     currentHeight =
         asciiHeight;
 
-    const outputPixels =
-        asciiWidth *
-        CHAR_WIDTH *
-        asciiHeight *
-        CHAR_HEIGHT;
+    const frames = [];
 
-    if (
-        outputPixels >
-        MAX_OUTPUT_PIXELS
-    ) {
-        throw new Error(
-            "Requested output is too large."
-        );
-    }
+    /*
+     * Capture at roughly 12 FPS.
+     *
+     * Browser GIF playback timing varies, so sampling is
+     * deliberately conservative.
+     */
+    const frameDelay =
+        83;
 
-    const renderedFrames = [];
-    const delays = [];
+    let lastSignature = "";
 
-    placeholder.style.display =
-        "none";
+    let stableFrames = 0;
+
+    /*
+     * Give the GIF time to start.
+     */
+    await sleep(100);
 
     for (
-        let i = 0;
-        i < decoded.frames.length;
-        i++
+        let frameIndex = 0;
+        frameIndex < MAX_ANIMATION_FRAMES;
+        frameIndex++
     ) {
 
         if (
             token !== renderToken
         ) {
+
             throw new Error(
                 "Rendering stopped."
             );
+
         }
 
-        setInfo(
-            `Rendering GIF frame ` +
-            `${i + 1} / ${decoded.frames.length}`
-        );
-
-        showProgress(
-            (i /
-                decoded.frames.length) *
-            70
-        );
-
+        /*
+         * Read current browser-rendered GIF frame.
+         */
         const imageData =
-            gifFrameToImageData(
-                decoded.frames[i],
-                decoded.width,
-                decoded.height,
+            readImageFrame(
+                image,
                 asciiWidth,
                 asciiHeight
             );
@@ -2649,225 +1414,1083 @@ async function processGIF(
         currentImageData =
             imageData;
 
-        renderBinaryFrame(
-            imageData,
-            asciiWidth,
-            asciiHeight,
-            token
-        );
-
         /*
-         * Make a copy because the canvas is reused.
+         * Create an independent canvas containing
+         * the binary representation.
          */
-        const copy =
-            new ImageData(
-                new Uint8ClampedArray(
-                    imageData.data
-                ),
-                imageData.width,
-                imageData.height
+        const frameCanvasCopy =
+            document.createElement(
+                "canvas"
             );
 
-        renderedFrames.push(copy);
+        frameCanvasCopy.width =
+            asciiWidth *
+            CHAR_WIDTH;
 
-        delays.push(
-            decoded.frames[i].delay
+        frameCanvasCopy.height =
+            asciiHeight *
+            CHAR_HEIGHT;
+
+        const frameCtx =
+            frameCanvasCopy.getContext(
+                "2d"
+            );
+
+        frameCtx.fillStyle =
+            "#000000";
+
+        frameCtx.fillRect(
+            0,
+            0,
+            frameCanvasCopy.width,
+            frameCanvasCopy.height
         );
 
-        fitCanvasToScreen();
+        frameCtx.font =
+            `${FONT_SIZE}px "Courier New", monospace`;
 
-        await nextFrame();
-    }
+        frameCtx.textBaseline =
+            "top";
 
-    /*
-     * Render the final frame again for preview.
-     */
-    renderBinaryFrame(
-        currentImageData,
-        asciiWidth,
-        asciiHeight,
-        token
-    );
-
-    fitCanvasToScreen();
-
-    setInfo(
-        "Encoding GIF..."
-    );
-
-    showProgress(75);
-
-    const gifBlob =
-        await encodeGIF(
-            renderedFrames,
-            asciiWidth,
-            asciiHeight,
-            delays,
-            token
-        );
-
-    return {
-        blob: gifBlob,
-        frames: renderedFrames.length,
-        width: asciiWidth,
-        height: asciiHeight
-    };
-}
-
-
-/* =========================================================
-   RENDER WEBP
-   ========================================================= */
-
-async function processWebP(
-    blob,
-    token
-) {
-
-    /*
-     * Browser-native createImageBitmap handles
-     * static WebP everywhere modern browsers support WebP.
-     *
-     * Animated WebP is intentionally handled through
-     * the browser's <img> decoder below.
-     */
-
-    setInfo(
-        "Loading WebP..."
-    );
-
-    const url =
-        URL.createObjectURL(blob);
-
-    try {
-
-        const image =
-            new Image();
-
-        image.decoding =
-            "async";
-
-        image.src =
-            url;
-
-        await image.decode();
-
-        if (
-            token !== renderToken
+        for (
+            let y = 0;
+            y < asciiHeight;
+            y++
         ) {
-            throw new Error(
-                "Rendering stopped."
-            );
+
+            for (
+                let x = 0;
+                x < asciiWidth;
+                x++
+            ) {
+
+                const index =
+                    (
+                        y *
+                        asciiWidth +
+                        x
+                    ) * 4;
+
+                const r =
+                    imageData.data[index];
+
+                const g =
+                    imageData.data[index + 1];
+
+                const b =
+                    imageData.data[index + 2];
+
+                const alpha =
+                    imageData.data[index + 3];
+
+                if (
+                    alpha === 0
+                ) {
+                    continue;
+                }
+
+                const gray =
+                    0.299 * r +
+                    0.587 * g +
+                    0.114 * b;
+
+                const char =
+                    gray < 128
+                        ? "1"
+                        : "0";
+
+                frameCtx.fillStyle =
+                    `rgb(${r},${g},${b})`;
+
+                frameCtx.fillText(
+                    char,
+                    x * CHAR_WIDTH,
+                    y * CHAR_HEIGHT
+                );
+
+            }
+
         }
 
         /*
-         * Browsers expose the animation through the image
-         * element, but JavaScript cannot reliably step through
-         * all animated WebP frames without WebCodecs.
-         *
-         * Therefore the browser-decoded visible frame is used.
+         * Detect whether we are actually seeing animation.
          */
+        const sample =
+            imageData.data;
 
-        const resolution =
-            calculateResolution(
-                image.naturalWidth,
-                image.naturalHeight,
-                qualitySelect.value,
-                false
+        let signature =
+            "";
+
+        const step =
+            Math.max(
+                1,
+                Math.floor(
+                    sample.length / 100
+                )
             );
 
-        sourceCanvas.width =
-            resolution.width;
+        for (
+            let i = 0;
+            i < sample.length;
+            i += step
+        ) {
 
-        sourceCanvas.height =
-            resolution.height;
+            signature +=
+                sample[i].toString(16);
+
+        }
+
+        if (
+            signature === lastSignature
+        ) {
+
+            stableFrames++;
+
+        } else {
+
+            stableFrames = 0;
+
+        }
+
+        lastSignature =
+            signature;
+
+        frames.push({
+            canvas:
+                frameCanvasCopy,
+            delay:
+                frameDelay
+        });
+
+        /*
+         * Show preview.
+         */
+        previewCanvas.width =
+            frameCanvasCopy.width;
+
+        previewCanvas.height =
+            frameCanvasCopy.height;
+
+        previewCanvas
+            .getContext("2d")
+            .drawImage(
+                frameCanvasCopy,
+                0,
+                0
+            );
+
+        placeholder.style.display =
+            "none";
+
+        fitCanvasToScreen();
+
+        showProgress(
+            10 +
+            (
+                frameIndex /
+                MAX_ANIMATION_FRAMES
+            ) * 55
+        );
+
+        setInfo(
+            `Capturing GIF animation: ` +
+            `${frameIndex + 1} / ${MAX_ANIMATION_FRAMES}`
+        );
+
+        /*
+         * If the image hasn't changed for many samples,
+         * it is probably a static GIF.
+         *
+         * Don't wait indefinitely.
+         */
+        if (
+            frameIndex >= 12 &&
+            stableFrames >= 10
+        ) {
+
+            break;
+
+        }
+
+        await sleep(frameDelay);
+
+    }
+
+    return {
+        frames,
+        width: asciiWidth,
+        height: asciiHeight
+    };
+
+}
+
+
+/*
+===========================================================
+GIF ENCODER
+===========================================================
+
+This is a small worker-free GIF89a encoder.
+
+Important:
+- No gif.js
+- No external worker
+- No cross-origin worker
+- Works from GitHub Pages
+- Uses a fixed 256-color palette
+===========================================================
+*/
+
+class BinaryGIFEncoder {
+
+    constructor(
+        width,
+        height,
+        loop = 0
+    ) {
+
+        this.width =
+            width;
+
+        this.height =
+            height;
+
+        this.loop =
+            loop;
+
+        this.frames =
+            [];
+
+    }
+
+
+    addFrame(
+        canvas,
+        delay
+    ) {
 
         const ctx =
-            sourceCanvas.getContext(
+            canvas.getContext(
                 "2d",
                 {
                     willReadFrequently: true
                 }
             );
 
-        ctx.drawImage(
-            image,
-            0,
-            0,
-            resolution.width,
-            resolution.height
-        );
-
         const imageData =
             ctx.getImageData(
                 0,
                 0,
-                resolution.width,
-                resolution.height
+                this.width,
+                this.height
             );
 
-        currentImageData =
-            imageData;
+        this.frames.push({
+            data:
+                new Uint8Array(
+                    imageData.data
+                ),
+            delay:
+                Math.max(
+                    20,
+                    delay || 100
+                )
+        });
 
-        currentWidth =
-            resolution.width;
+    }
 
-        currentHeight =
-            resolution.height;
 
-        placeholder.style.display =
-            "none";
+    encode() {
 
-        renderBinaryFrame(
-            imageData,
-            resolution.width,
-            resolution.height,
-            token
+        const out =
+            new ByteWriter();
+
+        /*
+         * Header.
+         */
+        out.string(
+            "GIF89a"
         );
 
-        fitCanvasToScreen();
+        /*
+         * Logical screen.
+         */
+        out.u16(
+            this.width
+        );
 
-        return {
-            width: resolution.width,
-            height: resolution.height
-        };
+        out.u16(
+            this.height
+        );
 
-    } finally {
+        /*
+         * Global color table:
+         *
+         * 256 colors
+         * 8-bit color resolution
+         * sorted = false
+         * table size = 256
+         */
+        out.u8(
+            0xF7
+        );
 
-        URL.revokeObjectURL(url);
+        /*
+         * Background color.
+         */
+        out.u8(0);
+
+        /*
+         * Pixel aspect ratio.
+         */
+        out.u8(0);
+
+        /*
+         * Palette.
+         */
+        const palette =
+            createPalette();
+
+        for (
+            const color of palette
+        ) {
+
+            out.u8(color[0]);
+            out.u8(color[1]);
+            out.u8(color[2]);
+
+        }
+
+        /*
+         * Netscape looping extension.
+         */
+        out.u8(0x21);
+        out.u8(0xFF);
+        out.u8(11);
+
+        out.string(
+            "NETSCAPE2.0"
+        );
+
+        out.u8(3);
+        out.u8(1);
+
+        out.u16(
+            this.loop
+        );
+
+        out.u8(0);
+
+        /*
+         * Frames.
+         */
+        for (
+            const frame of this.frames
+        ) {
+
+            const indices =
+                rgbaToPalette(
+                    frame.data
+                );
+
+            /*
+             * Graphic Control Extension.
+             */
+            out.u8(0x21);
+            out.u8(0xF9);
+            out.u8(4);
+
+            /*
+             * Disposal method 1.
+             */
+            out.u8(0x04);
+
+            /*
+             * Delay in 1/100 second units.
+             */
+            out.u16(
+                Math.max(
+                    2,
+                    Math.round(
+                        frame.delay / 10
+                    )
+                )
+            );
+
+            /*
+             * Transparent color index unused.
+             */
+            out.u8(0);
+
+            out.u8(0);
+
+            /*
+             * Image descriptor.
+             */
+            out.u8(0x2C);
+
+            out.u16(0);
+            out.u16(0);
+
+            out.u16(
+                this.width
+            );
+
+            out.u16(
+                this.height
+            );
+
+            /*
+             * No local color table.
+             */
+            out.u8(0);
+
+            /*
+             * LZW minimum code size.
+             */
+            const minCodeSize = 8;
+
+            out.u8(
+                minCodeSize
+            );
+
+            const compressed =
+                lzwEncode(
+                    indices,
+                    minCodeSize
+                );
+
+            let offset = 0;
+
+            while (
+                offset <
+                compressed.length
+            ) {
+
+                const size =
+                    Math.min(
+                        255,
+                        compressed.length -
+                        offset
+                    );
+
+                out.u8(size);
+
+                for (
+                    let i = 0;
+                    i < size;
+                    i++
+                ) {
+
+                    out.u8(
+                        compressed[
+                            offset + i
+                        ]
+                    );
+
+                }
+
+                offset += size;
+
+            }
+
+            out.u8(0);
+
+        }
+
+        /*
+         * Trailer.
+         */
+        out.u8(0x3B);
+
+        return new Blob(
+            [
+                out.finish()
+            ],
+            {
+                type:
+                    "image/gif"
+            }
+        );
+
     }
+
 }
 
 
-/* =========================================================
-   STATIC → GIF
-   ========================================================= */
+/*
+===========================================================
+BYTE WRITER
+===========================================================
+*/
 
-async function createStaticGIF(
-    imageData,
+class ByteWriter {
+
+    constructor() {
+
+        this.bytes = [];
+
+    }
+
+    u8(value) {
+
+        this.bytes.push(
+            value & 255
+        );
+
+    }
+
+    u16(value) {
+
+        this.u8(
+            value & 255
+        );
+
+        this.u8(
+            (value >> 8) & 255
+        );
+
+    }
+
+    string(value) {
+
+        for (
+            let i = 0;
+            i < value.length;
+            i++
+        ) {
+
+            this.u8(
+                value.charCodeAt(i)
+            );
+
+        }
+
+    }
+
+    finish() {
+
+        return new Uint8Array(
+            this.bytes
+        );
+
+    }
+
+}
+
+
+/*
+===========================================================
+256-COLOR PALETTE
+===========================================================
+*/
+
+function createPalette() {
+
+    const palette = [];
+
+    /*
+     * Grayscale colors.
+     *
+     * The binary characters themselves are colored using
+     * the source image, but the GIF must have a finite
+     * palette.
+     *
+     * Build a practical RGB cube:
+     * 6 x 6 x 6 = 216 colors
+     * plus grayscale.
+     */
+
+    for (
+        let r = 0;
+        r < 6;
+        r++
+    ) {
+
+        for (
+            let g = 0;
+            g < 6;
+            g++
+        ) {
+
+            for (
+                let b = 0;
+                b < 6;
+                b++
+            ) {
+
+                palette.push([
+                    Math.round(
+                        r * 255 / 5
+                    ),
+                    Math.round(
+                        g * 255 / 5
+                    ),
+                    Math.round(
+                        b * 255 / 5
+                    )
+                ]);
+
+            }
+
+        }
+
+    }
+
+    /*
+     * Remaining 40 entries.
+     */
+    for (
+        let i = 0;
+        i < 40;
+        i++
+    ) {
+
+        const v =
+            Math.round(
+                i * 255 / 39
+            );
+
+        palette.push([
+            v,
+            v,
+            v
+        ]);
+
+    }
+
+    while (
+        palette.length < 256
+    ) {
+
+        palette.push([
+            0,
+            0,
+            0
+        ]);
+
+    }
+
+    return palette;
+
+}
+
+
+/*
+===========================================================
+RGB → PALETTE
+===========================================================
+*/
+
+function nearestPaletteIndex(
+    r,
+    g,
+    b
+) {
+
+    /*
+     * First 216 colors are RGB cube.
+     */
+    const rr =
+        Math.round(
+            r / 51
+        );
+
+    const gg =
+        Math.round(
+            g / 51
+        );
+
+    const bb =
+        Math.round(
+            b / 51
+        );
+
+    const cr =
+        clamp(
+            rr,
+            0,
+            5
+        );
+
+    const cg =
+        clamp(
+            gg,
+            0,
+            5
+        );
+
+    const cb =
+        clamp(
+            bb,
+            0,
+            5
+        );
+
+    return (
+        cr * 36 +
+        cg * 6 +
+        cb
+    );
+
+}
+
+
+function rgbaToPalette(data) {
+
+    const result =
+        new Uint8Array(
+            data.length / 4
+        );
+
+    let p = 0;
+
+    for (
+        let i = 0;
+        i < data.length;
+        i += 4
+    ) {
+
+        const r =
+            data[i];
+
+        const g =
+            data[i + 1];
+
+        const b =
+            data[i + 2];
+
+        result[p++] =
+            nearestPaletteIndex(
+                r,
+                g,
+                b
+            );
+
+    }
+
+    return result;
+
+}
+
+
+/*
+===========================================================
+LZW ENCODER
+===========================================================
+*/
+
+function lzwEncode(
+    indices,
+    minCodeSize
+) {
+
+    const clearCode =
+        1 << minCodeSize;
+
+    const endCode =
+        clearCode + 1;
+
+    let nextCode =
+        endCode + 1;
+
+    let codeSize =
+        minCodeSize + 1;
+
+    const maxCode =
+        1 << 12;
+
+    const dictionary =
+        new Map();
+
+    const output = [];
+
+    let bitBuffer = 0;
+    let bitCount = 0;
+
+    function writeCode(code) {
+
+        bitBuffer |=
+            code << bitCount;
+
+        bitCount +=
+            codeSize;
+
+        while (
+            bitCount >= 8
+        ) {
+
+            output.push(
+                bitBuffer & 255
+            );
+
+            bitBuffer >>=
+                8;
+
+            bitCount -=
+                8;
+
+        }
+
+    }
+
+    function resetDictionary() {
+
+        dictionary.clear();
+
+        nextCode =
+            endCode + 1;
+
+        codeSize =
+            minCodeSize + 1;
+
+    }
+
+    writeCode(
+        clearCode
+    );
+
+    resetDictionary();
+
+    if (
+        indices.length === 0
+    ) {
+
+        writeCode(
+            endCode
+        );
+
+        if (
+            bitCount > 0
+        ) {
+
+            output.push(
+                bitBuffer & 255
+            );
+
+        }
+
+        return new Uint8Array(
+            output
+        );
+
+    }
+
+    let prefix =
+        indices[0];
+
+    for (
+        let i = 1;
+        i < indices.length;
+        i++
+    ) {
+
+        const k =
+            indices[i];
+
+        const key =
+            prefix + "," + k;
+
+        if (
+            dictionary.has(key)
+        ) {
+
+            prefix =
+                dictionary.get(key);
+
+            continue;
+
+        }
+
+        writeCode(
+            prefix
+        );
+
+        if (
+            nextCode <
+            maxCode
+        ) {
+
+            dictionary.set(
+                key,
+                nextCode++
+            );
+
+            if (
+                nextCode >=
+                (1 << codeSize) &&
+                codeSize < 12
+            ) {
+
+                codeSize++;
+
+            }
+
+        } else {
+
+            writeCode(
+                clearCode
+            );
+
+            resetDictionary();
+
+        }
+
+        prefix =
+            k;
+
+    }
+
+    writeCode(
+        prefix
+    );
+
+    writeCode(
+        endCode
+    );
+
+    if (
+        bitCount > 0
+    ) {
+
+        output.push(
+            bitBuffer & 255
+        );
+
+    }
+
+    return new Uint8Array(
+        output
+    );
+
+}
+
+
+/*
+===========================================================
+ENCODE CANVASES
+===========================================================
+*/
+
+function encodeFrames(
+    frames,
     width,
     height,
     token
 ) {
 
-    const blob =
-        await encodeGIF(
-            [imageData],
-            width,
-            height,
-            [1000],
-            token
-        );
+    return new Promise(
+        async (resolve, reject) => {
 
-    return blob;
+            try {
+
+                const encoder =
+                    new BinaryGIFEncoder(
+                        width,
+                        height,
+                        0
+                    );
+
+                for (
+                    let i = 0;
+                    i < frames.length;
+                    i++
+                ) {
+
+                    if (
+                        token !== renderToken
+                    ) {
+
+                        throw new Error(
+                            "Rendering stopped."
+                        );
+
+                    }
+
+                    encoder.addFrame(
+                        frames[i].canvas,
+                        frames[i].delay
+                    );
+
+                    showProgress(
+                        70 +
+                        (
+                            (i + 1) /
+                            frames.length
+                        ) * 30
+                    );
+
+                    setInfo(
+                        `Encoding GIF: ` +
+                        `${i + 1} / ${frames.length}`
+                    );
+
+                    await nextFrame();
+
+                }
+
+                resolve(
+                    encoder.encode()
+                );
+
+            } catch (err) {
+
+                reject(err);
+
+            }
+
+        }
+    );
+
 }
 
 
-/* =========================================================
-   SHOW GIF
-   ========================================================= */
+/*
+===========================================================
+STATIC GIF ENCODING
+===========================================================
+*/
 
-function showGeneratedGIF(blob) {
+async function encodeStaticGIF(
+    token
+) {
+
+    const encoder =
+        new BinaryGIFEncoder(
+            previewCanvas.width,
+            previewCanvas.height,
+            0
+        );
+
+    encoder.addFrame(
+        previewCanvas,
+        1000
+    );
+
+    if (
+        token !== renderToken
+    ) {
+
+        throw new Error(
+            "Rendering stopped."
+        );
+
+    }
+
+    return encoder.encode();
+
+}
+
+
+/*
+===========================================================
+SHOW GIF
+===========================================================
+*/
+
+function showGeneratedGIF(
+    blob
+) {
 
     if (
         currentGifUrl
@@ -2876,13 +2499,16 @@ function showGeneratedGIF(blob) {
         URL.revokeObjectURL(
             currentGifUrl
         );
+
     }
 
     currentGifBlob =
         blob;
 
     currentGifUrl =
-        URL.createObjectURL(blob);
+        URL.createObjectURL(
+            blob
+        );
 
     gifPreview.src =
         currentGifUrl;
@@ -2892,12 +2518,15 @@ function showGeneratedGIF(blob) {
 
     downloadBtn.style.display =
         "inline-block";
+
 }
 
 
-/* =========================================================
-   MAIN PROCESS
-   ========================================================= */
+/*
+===========================================================
+MAIN PROCESS
+===========================================================
+*/
 
 async function processImage() {
 
@@ -2932,6 +2561,7 @@ async function processImage() {
 
         currentGifUrl =
             null;
+
     }
 
     currentGifBlob =
@@ -2944,6 +2574,10 @@ async function processImage() {
 
     try {
 
+        setInfo(
+            "Loading image..."
+        );
+
         const input =
             await getInputSource();
 
@@ -2953,112 +2587,312 @@ async function processImage() {
             return;
         }
 
-        const mime =
+        let mime =
             (
                 input.mime ||
                 input.blob.type ||
                 ""
             ).toLowerCase();
 
-        let result;
+        /*
+         * Detect GIF from file name when MIME is missing.
+         */
+        if (
+            !mime &&
+            fileInput.files[0]
+        ) {
+
+            mime =
+                guessMime(
+                    fileInput.files[0].name
+                );
+
+        }
+
+        const isGIF =
+            mime === "image/gif";
+
+        const isWebP =
+            mime === "image/webp";
 
         /*
          * GIF:
          *
-         * Use our built-in GIF decoder.
+         * Browser playback capture.
          */
         if (
-            mime === "image/gif" ||
-            guessMime(
-                imgUrl.value
-            ) === "image/gif"
+            isGIF
         ) {
 
-            result =
-                await processGIF(
-                    input.blob,
-                    token
-                );
-
-            showGeneratedGIF(
-                result.blob
-            );
-
             setInfo(
-                `Complete — GIF → binary GIF | ` +
-                `${decodedSafeDimension(
-                    result.width
-                )} × ` +
-                `${decodedSafeDimension(
-                    result.height
-                )} character cells | ` +
-                `${result.frames} frames`
+                "Loading GIF with browser decoder..."
             );
 
-        } else {
-
-            /*
-             * Static images and WebP.
-             */
-            result =
-                await decodeStatic(
+            const decoded =
+                await decodeAnimatedByPlayback(
                     input.blob,
-                    token
-                );
-
-            if (
-                !result
-            ) {
-                return;
-            }
-
-            setInfo(
-                `Encoding ${mime === "image/webp"
-                    ? "WebP"
-                    : "image"} as GIF...`
-            );
-
-            showProgress(80);
-
-            const gifBlob =
-                await createStaticGIF(
-                    currentImageData,
-                    currentWidth,
-                    currentHeight,
                     token
                 );
 
             if (
                 token !== renderToken
             ) {
-                throw new Error(
-                    "Rendering stopped."
+                return;
+            }
+
+            setInfo(
+                `GIF detected: ` +
+                `${decoded.sourceWidth} × ` +
+                `${decoded.sourceHeight}`
+            );
+
+            const captured =
+                await captureAnimatedGIF(
+                    decoded.image,
+                    decoded.sourceWidth,
+                    decoded.sourceHeight,
+                    token
                 );
+
+            URL.revokeObjectURL(
+                decoded.url
+            );
+
+            if (
+                !captured.frames.length
+            ) {
+
+                throw new Error(
+                    "The GIF did not produce any frames."
+                );
+
+            }
+
+            setInfo(
+                "Encoding final GIF..."
+            );
+
+            showProgress(70);
+
+            const blob =
+                await encodeFrames(
+                    captured.frames,
+                    captured.width *
+                        CHAR_WIDTH,
+                    captured.height *
+                        CHAR_HEIGHT,
+                    token
+                );
+
+            if (
+                token !== renderToken
+            ) {
+                return;
             }
 
             showGeneratedGIF(
-                gifBlob
+                blob
             );
 
+            copyBtn.style.display =
+                "inline-block";
+
             setInfo(
-                `Complete — ` +
-                `${result.width} × ` +
-                `${result.height} character cells`
+                `Complete — GIF → binary GIF | ` +
+                `${captured.width} × ` +
+                `${captured.height} character cells | ` +
+                `${captured.frames.length} frames`
             );
+
+            showProgress(100);
+
+            await sleep(300);
+
+            hideProgress();
+
+            return;
         }
+
+
+        /*
+         * WebP:
+         *
+         * Browser compatibility depends on whether the
+         * browser exposes animation through HTMLImageElement.
+         *
+         * If it is animated, playback capture is attempted.
+         * Otherwise it becomes a static image.
+         */
+        if (
+            isWebP
+        ) {
+
+            setInfo(
+                "Loading WebP with browser decoder..."
+            );
+
+            const decoded =
+                await decodeAnimatedByPlayback(
+                    input.blob,
+                    token
+                );
+
+            if (
+                token !== renderToken
+            ) {
+                return;
+            }
+
+            /*
+             * Capture a short sequence. Static WebP will
+             * naturally collapse to a few identical frames.
+             */
+            const captured =
+                await captureAnimatedGIF(
+                    decoded.image,
+                    decoded.sourceWidth,
+                    decoded.sourceHeight,
+                    token
+                );
+
+            URL.revokeObjectURL(
+                decoded.url
+            );
+
+            /*
+             * If only one meaningful frame exists, treat it
+             * as static.
+             */
+            if (
+                captured.frames.length <= 1
+            ) {
+
+                const result =
+                    await renderStatic(
+                        input.blob,
+                        token
+                    );
+
+                if (
+                    !result
+                ) {
+                    return;
+                }
+
+                const blob =
+                    await encodeStaticGIF(
+                        token
+                    );
+
+                showGeneratedGIF(
+                    blob
+                );
+
+                copyBtn.style.display =
+                    "inline-block";
+
+                setInfo(
+                    `Complete — WebP → GIF | ` +
+                    `${result.width} × ` +
+                    `${result.height} character cells`
+                );
+
+                showProgress(100);
+
+                await sleep(300);
+
+                hideProgress();
+
+                return;
+            }
+
+            setInfo(
+                "Encoding WebP animation..."
+            );
+
+            const blob =
+                await encodeFrames(
+                    captured.frames,
+                    captured.width *
+                        CHAR_WIDTH,
+                    captured.height *
+                        CHAR_HEIGHT,
+                    token
+                );
+
+            showGeneratedGIF(
+                blob
+            );
+
+            copyBtn.style.display =
+                "inline-block";
+
+            setInfo(
+                `Complete — animated WebP → GIF | ` +
+                `${captured.width} × ` +
+                `${captured.height} character cells | ` +
+                `${captured.frames.length} frames`
+            );
+
+            showProgress(100);
+
+            await sleep(300);
+
+            hideProgress();
+
+            return;
+
+        }
+
+
+        /*
+         * Static image.
+         */
+        const result =
+            await renderStatic(
+                input.blob,
+                token
+            );
+
+        if (
+            !result
+        ) {
+            return;
+        }
+
+        setInfo(
+            "Encoding final GIF..."
+        );
+
+        showProgress(70);
+
+        const blob =
+            await encodeStaticGIF(
+                token
+            );
+
+        if (
+            token !== renderToken
+        ) {
+            return;
+        }
+
+        showGeneratedGIF(
+            blob
+        );
 
         copyBtn.style.display =
             "inline-block";
 
+        setInfo(
+            `Complete — ` +
+            `${result.width} × ` +
+            `${result.height} character cells`
+        );
+
         showProgress(100);
 
-        await new Promise(
-            resolve =>
-                setTimeout(
-                    resolve,
-                    300
-                )
-        );
+        await sleep(300);
 
         hideProgress();
 
@@ -3079,7 +2913,7 @@ async function processImage() {
             err &&
             err.message
                 ? err.message
-                : "Something went wrong."
+                : "Something went wrong while processing the image."
         );
 
         setInfo(
@@ -3099,25 +2933,19 @@ async function processImage() {
 
             stopBtn.style.display =
                 "none";
+
         }
+
     }
+
 }
 
 
 /*
- * Prevent giant template values in info text.
- */
-function decodedSafeDimension(value) {
-    return Math.max(
-        1,
-        Math.floor(value)
-    );
-}
-
-
-/* =========================================================
-   STOP
-   ========================================================= */
+===========================================================
+STOP
+===========================================================
+*/
 
 function stopRendering() {
 
@@ -3134,12 +2962,15 @@ function stopRendering() {
         "none";
 
     hideProgress();
+
 }
 
 
-/* =========================================================
-   DOWNLOAD
-   ========================================================= */
+/*
+===========================================================
+DOWNLOAD
+===========================================================
+*/
 
 function downloadGIF() {
 
@@ -3151,7 +2982,9 @@ function downloadGIF() {
     }
 
     const a =
-        document.createElement("a");
+        document.createElement(
+            "a"
+        );
 
     a.href =
         currentGifUrl;
@@ -3164,19 +2997,22 @@ function downloadGIF() {
     a.click();
 
     a.remove();
+
 }
 
 
-/* =========================================================
-   COPY FRAME
-   ========================================================= */
+/*
+===========================================================
+COPY CURRENT FRAME
+===========================================================
+*/
 
 async function copyCurrentFrame() {
 
     if (
         !currentImageData ||
-        !currentWidth ||
-        !currentHeight
+        currentWidth <= 0 ||
+        currentHeight <= 0
     ) {
         return;
     }
@@ -3216,6 +3052,7 @@ async function copyCurrentFrame() {
                 line += " ";
 
                 continue;
+
             }
 
             const r =
@@ -3242,9 +3079,11 @@ async function copyCurrentFrame() {
                 gray < 128
                     ? "1"
                     : "0";
+
         }
 
         lines.push(line);
+
     }
 
     try {
@@ -3257,18 +3096,27 @@ async function copyCurrentFrame() {
             "Current frame copied as text."
         );
 
-    } catch {
+    } catch (err) {
 
         alert(
             "Clipboard access failed."
         );
+
     }
+
 }
 
 
-/* =========================================================
-   EVENTS
-   ========================================================= */
+/*
+===========================================================
+EVENTS
+===========================================================
+*/
+
+window.addEventListener(
+    "resize",
+    fitCanvasToScreen
+);
 
 convertBtn.addEventListener(
     "click",
@@ -3292,20 +3140,22 @@ copyBtn.addEventListener(
 
 imgUrl.addEventListener(
     "keydown",
-    event => {
+    function(event) {
 
         if (
             event.key === "Enter"
         ) {
 
             processImage();
+
         }
+
     }
 );
 
 fileInput.addEventListener(
     "change",
-    () => {
+    function() {
 
         if (
             fileInput.files.length
@@ -3314,22 +3164,22 @@ fileInput.addEventListener(
             imgUrl.value = "";
 
             setInfo(
-                `Selected: ` +
-                fileInput.files[0].name
+                `Selected: ${
+                    fileInput.files[0].name
+                }`
             );
+
         }
+
     }
 );
 
-window.addEventListener(
-    "resize",
-    fitCanvasToScreen
-);
 
-
-/* =========================================================
-   INITIAL
-   ========================================================= */
+/*
+===========================================================
+INITIAL STATE
+===========================================================
+*/
 
 clearOutput();
 
