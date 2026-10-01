@@ -1,0 +1,2534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Colored Binary GIF / WebP to GIF</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background: #121212;
+        color: #e0e0e0;
+        padding: 20px;
+        max-width: 1400px;
+        margin: auto;
+    }
+
+    h2 {
+        color: #4fc3f7;
+        margin-top: 0;
+    }
+
+    .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    input[type="text"] {
+        flex: 1;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #333;
+        background: #1e1e1e;
+        color: white;
+        min-width: 280px;
+        outline: none;
+        font-size: 14px;
+    }
+
+    input[type="text"]:focus {
+        border-color: #0288d1;
+    }
+
+    input[type="file"] {
+        color: #ddd;
+        max-width: 300px;
+    }
+
+    select,
+    button {
+        padding: 10px 15px;
+        border-radius: 4px;
+        border: none;
+        background: #0288d1;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    select {
+        min-width: 230px;
+    }
+
+    button:hover {
+        background: #0277bd;
+    }
+
+    button:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
+
+    #stopBtn {
+        display: none;
+        background: #c62828;
+    }
+
+    #stopBtn:hover {
+        background: #b71c1c;
+    }
+
+    #downloadBtn {
+        display: none;
+        background: #2e7d32;
+    }
+
+    #downloadBtn:hover {
+        background: #1b5e20;
+    }
+
+    #copyBtn {
+        display: none;
+        background: #6a1b9a;
+    }
+
+    #info {
+        color: #aaa;
+        font-size: 13px;
+        margin: 8px 0 12px;
+        line-height: 1.5;
+    }
+
+    #warning {
+        display: none;
+        background: #4a3200;
+        border: 1px solid #9a6b00;
+        color: #ffd666;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+
+    #error {
+        display: none;
+        background: #4a1010;
+        border: 1px solid #a52a2a;
+        color: #ffaaaa;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 12px;
+        line-height: 1.4;
+    }
+
+    #progressContainer {
+        display: none;
+        width: 100%;
+        height: 7px;
+        background: #222;
+        border-radius: 4px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    #progressBar {
+        height: 100%;
+        width: 0%;
+        background: #03a9f4;
+        transition: width .05s linear;
+    }
+
+    #outputWrapper {
+        background: #000;
+        border: 1px solid #333;
+        border-radius: 6px;
+        overflow: auto;
+        padding: 15px;
+        max-width: 100%;
+    }
+
+    #canvasContainer {
+        width: 100%;
+        overflow: hidden;
+        background: #000;
+    }
+
+    #previewCanvas {
+        display: block;
+        background: #000;
+        image-rendering: auto;
+        max-width: none;
+    }
+
+    #placeholder {
+        color: #777;
+        font-family: "Courier New", monospace;
+        white-space: pre-wrap;
+    }
+
+    #downloadArea {
+        margin-top: 15px;
+        display: none;
+    }
+
+    #gifPreview {
+        max-width: 100%;
+        height: auto;
+        background: #000;
+        border: 1px solid #333;
+    }
+
+    #sourceCanvas,
+    #frameCanvas {
+        display: none;
+    }
+
+    .small {
+        color: #888;
+        font-size: 12px;
+        margin-top: 8px;
+    }
+</style>
+</head>
+
+<body>
+
+<h2>Image → Colored 1 / 0 Animated GIF</h2>
+
+<div class="controls">
+
+    <input
+        type="text"
+        id="imgUrl"
+        placeholder="Paste image / GIF / WebP URL..."
+    >
+
+    <input
+        type="file"
+        id="fileInput"
+        accept="image/*,.gif,.webp"
+    >
+
+    <select id="qualitySelect">
+        <option value="35">
+            Low — 35 characters wide
+        </option>
+
+        <option value="80" selected>
+            Medium — 80 characters wide
+        </option>
+
+        <option value="150">
+            High — 150 characters wide
+        </option>
+
+        <option value="300">
+            Ultra — 300 characters wide
+        </option>
+
+        <option value="600">
+            Extreme — 600 characters wide
+        </option>
+
+        <option value="1200">
+            ⚡ HYPER — 1200 characters wide
+        </option>
+    </select>
+
+    <button id="convertBtn">
+        Convert
+    </button>
+
+    <button id="stopBtn">
+        Stop
+    </button>
+
+    <button id="downloadBtn">
+        Download GIF
+    </button>
+
+    <button id="copyBtn">
+        Copy Frame
+    </button>
+
+</div>
+
+<div id="info">
+    No image loaded.
+</div>
+
+<div id="warning"></div>
+
+<div id="error"></div>
+
+<div id="progressContainer">
+    <div id="progressBar"></div>
+</div>
+
+<div id="outputWrapper">
+
+    <div id="canvasContainer">
+
+        <div id="placeholder">
+            Paste an image/GIF/WebP URL or choose a file above.
+        </div>
+
+        <canvas id="previewCanvas"></canvas>
+
+    </div>
+
+</div>
+
+<div id="downloadArea">
+
+    <h3>Generated GIF</h3>
+
+    <img id="gifPreview" alt="Generated GIF">
+
+    <div class="small">
+        The GIF above is the actual generated binary GIF.
+    </div>
+
+</div>
+
+<canvas id="sourceCanvas"></canvas>
+<canvas id="frameCanvas"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+
+<script>
+"use strict";
+
+/* =========================================================
+   CONFIGURATION
+   ========================================================= */
+
+const CHAR_WIDTH = 6;
+const CHAR_HEIGHT = 10;
+const FONT_SIZE = 10;
+
+const ANIMATED_MAX_WIDTH = 150;
+const ANIMATED_MAX_HEIGHT = 150;
+
+const MAX_ANIMATION_FRAMES = 300;
+
+const ROWS_PER_BATCH = 1000;
+
+const MAX_OUTPUT_PIXELS = 160000000;
+
+const MIN_DISPLAY_SCALE = 0.20;
+
+const GIF_WORKER =
+    "https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.worker.js";
+
+
+/* =========================================================
+   ELEMENTS
+   ========================================================= */
+
+const imgUrl =
+    document.getElementById("imgUrl");
+
+const fileInput =
+    document.getElementById("fileInput");
+
+const qualitySelect =
+    document.getElementById("qualitySelect");
+
+const convertBtn =
+    document.getElementById("convertBtn");
+
+const stopBtn =
+    document.getElementById("stopBtn");
+
+const downloadBtn =
+    document.getElementById("downloadBtn");
+
+const copyBtn =
+    document.getElementById("copyBtn");
+
+const info =
+    document.getElementById("info");
+
+const warning =
+    document.getElementById("warning");
+
+const errorBox =
+    document.getElementById("error");
+
+const progressContainer =
+    document.getElementById("progressContainer");
+
+const progressBar =
+    document.getElementById("progressBar");
+
+const outputWrapper =
+    document.getElementById("outputWrapper");
+
+const canvasContainer =
+    document.getElementById("canvasContainer");
+
+const previewCanvas =
+    document.getElementById("previewCanvas");
+
+const placeholder =
+    document.getElementById("placeholder");
+
+const gifPreview =
+    document.getElementById("gifPreview");
+
+const downloadArea =
+    document.getElementById("downloadArea");
+
+const sourceCanvas =
+    document.getElementById("sourceCanvas");
+
+const frameCanvas =
+    document.getElementById("frameCanvas");
+
+
+/* =========================================================
+   STATE
+   ========================================================= */
+
+let renderToken = 0;
+
+let currentGifBlob = null;
+
+let currentGifUrl = null;
+
+let currentPreviewFrame = null;
+
+let currentWidth = 0;
+
+let currentHeight = 0;
+
+let currentImageData = null;
+
+
+/* =========================================================
+   GENERAL HELPERS
+   ========================================================= */
+
+function nextFrame() {
+    return new Promise(resolve => {
+        requestAnimationFrame(resolve);
+    });
+}
+
+
+function sleep(ms) {
+    return new Promise(resolve => {
+        setTimeout(resolve, ms);
+    });
+}
+
+
+function clamp(value, min, max) {
+    return Math.max(
+        min,
+        Math.min(max, value)
+    );
+}
+
+
+function setInfo(text) {
+    info.textContent = text;
+}
+
+
+function showError(text) {
+    errorBox.textContent = text;
+    errorBox.style.display = "block";
+}
+
+
+function hideError() {
+    errorBox.style.display = "none";
+    errorBox.textContent = "";
+}
+
+
+function showWarning(text) {
+    warning.textContent = text;
+    warning.style.display = "block";
+}
+
+
+function hideWarning() {
+    warning.style.display = "none";
+    warning.textContent = "";
+}
+
+
+function showProgress(percent) {
+    progressContainer.style.display = "block";
+
+    progressBar.style.width =
+        clamp(percent, 0, 100) + "%";
+}
+
+
+function hideProgress() {
+    progressContainer.style.display = "none";
+    progressBar.style.width = "0%";
+}
+
+
+/* =========================================================
+   CLEAR OUTPUT
+   ========================================================= */
+
+function clearOutput() {
+
+    previewCanvas.width = 1;
+    previewCanvas.height = 1;
+
+    previewCanvas.style.width = "1px";
+    previewCanvas.style.height = "1px";
+
+    placeholder.style.display = "block";
+
+    currentImageData = null;
+    currentPreviewFrame = null;
+    currentWidth = 0;
+    currentHeight = 0;
+}
+
+
+/* =========================================================
+   FIT PREVIEW
+   ========================================================= */
+
+function fitCanvasToScreen() {
+
+    if (
+        previewCanvas.width <= 1 ||
+        previewCanvas.height <= 1
+    ) {
+        return;
+    }
+
+    const availableWidth =
+        Math.max(
+            1,
+            outputWrapper.clientWidth - 30
+        );
+
+    const naturalWidth =
+        previewCanvas.width;
+
+    let scale =
+        Math.min(
+            1,
+            availableWidth / naturalWidth
+        );
+
+    if (
+        scale < MIN_DISPLAY_SCALE
+    ) {
+        scale = MIN_DISPLAY_SCALE;
+    }
+
+    previewCanvas.style.width =
+        Math.round(
+            naturalWidth * scale
+        ) + "px";
+
+    previewCanvas.style.height =
+        Math.round(
+            previewCanvas.height * scale
+        ) + "px";
+
+    previewCanvas.dataset.scale = scale;
+}
+
+
+/* =========================================================
+   RESOLUTION
+   ========================================================= */
+
+function calculateResolution(
+    sourceWidth,
+    sourceHeight,
+    quality,
+    animated
+) {
+
+    let width;
+
+    if (animated) {
+
+        width =
+            Math.min(
+                sourceWidth,
+                ANIMATED_MAX_WIDTH
+            );
+
+    } else if (
+        quality === "1200"
+    ) {
+
+        width = sourceWidth;
+
+    } else {
+
+        width =
+            Math.min(
+                parseInt(
+                    quality,
+                    10
+                ),
+                sourceWidth
+            );
+    }
+
+    const imageRatio =
+        sourceHeight /
+        sourceWidth;
+
+    const characterCorrection =
+        CHAR_WIDTH /
+        CHAR_HEIGHT;
+
+    let height =
+        Math.max(
+            1,
+            Math.round(
+                width *
+                imageRatio *
+                characterCorrection
+            )
+        );
+
+    if (animated) {
+
+        if (
+            height > ANIMATED_MAX_HEIGHT
+        ) {
+
+            const scale =
+                ANIMATED_MAX_HEIGHT /
+                height;
+
+            height =
+                ANIMATED_MAX_HEIGHT;
+
+            width =
+                Math.max(
+                    1,
+                    Math.round(
+                        width * scale
+                    )
+                );
+        }
+    }
+
+    return {
+        width,
+        height
+    };
+}
+
+
+/* =========================================================
+   MIME DETECTION
+   ========================================================= */
+
+function guessMime(url) {
+
+    if (!url) {
+        return "";
+    }
+
+    const clean =
+        url
+            .split("?")[0]
+            .split("#")[0]
+            .toLowerCase();
+
+    if (
+        clean.endsWith(".gif")
+    ) {
+        return "image/gif";
+    }
+
+    if (
+        clean.endsWith(".webp")
+    ) {
+        return "image/webp";
+    }
+
+    if (
+        clean.endsWith(".png")
+    ) {
+        return "image/png";
+    }
+
+    if (
+        clean.endsWith(".jpg") ||
+        clean.endsWith(".jpeg")
+    ) {
+        return "image/jpeg";
+    }
+
+    return "";
+}
+
+
+function normalizeMime(type) {
+
+    if (!type) {
+        return "";
+    }
+
+    type =
+        type
+            .toLowerCase()
+            .split(";")[0]
+            .trim();
+
+    if (
+        type === "image/x-gif"
+    ) {
+        return "image/gif";
+    }
+
+    if (
+        type === "image/x-webp"
+    ) {
+        return "image/webp";
+    }
+
+    return type;
+}
+
+
+function isAnimatedMime(type) {
+
+    type =
+        normalizeMime(type);
+
+    return (
+        type === "image/gif" ||
+        type === "image/webp"
+    );
+}
+
+
+function isAnimatedImage(
+    blob,
+    mime,
+    url
+) {
+
+    const blobType =
+        normalizeMime(
+            blob?.type
+        );
+
+    const suppliedType =
+        normalizeMime(mime);
+
+    const guessedType =
+        normalizeMime(
+            guessMime(url)
+        );
+
+    return (
+        isAnimatedMime(blobType) ||
+        isAnimatedMime(suppliedType) ||
+        isAnimatedMime(guessedType)
+    );
+}
+
+
+/* =========================================================
+   URL SOURCE
+   ========================================================= */
+
+async function getURLData(url) {
+
+    const response =
+        await fetch(
+            url,
+            {
+                mode: "cors"
+            }
+        );
+
+    if (!response.ok) {
+
+        throw new Error(
+            "HTTP " +
+            response.status
+        );
+    }
+
+    const blob =
+        await response.blob();
+
+    /*
+     * Some servers return application/octet-stream.
+     *
+     * If that happens, use the URL extension.
+     */
+    let mime =
+        normalizeMime(
+            blob.type
+        );
+
+    if (
+        !mime ||
+        mime === "application/octet-stream"
+    ) {
+        mime =
+            guessMime(url);
+    }
+
+    return {
+        blob,
+        mime
+    };
+}
+
+
+/* =========================================================
+   FILE / URL SOURCE
+   ========================================================= */
+
+async function getInputSource() {
+
+    const file =
+        fileInput.files[0];
+
+    if (file) {
+
+        let mime =
+            normalizeMime(
+                file.type
+            );
+
+        if (
+            !mime ||
+            mime === "application/octet-stream"
+        ) {
+            mime =
+                guessMime(
+                    file.name
+                );
+        }
+
+        return {
+            blob: file,
+            mime
+        };
+    }
+
+    const url =
+        imgUrl.value.trim();
+
+    if (!url) {
+
+        throw new Error(
+            "Please provide an image URL or file."
+        );
+    }
+
+    return await getURLData(url);
+}
+
+
+/* =========================================================
+   ANIMATED IMAGE DECODER
+   ========================================================= */
+
+async function decodeAnimatedImage(
+    blob,
+    mime,
+    token
+) {
+
+    if (
+        typeof ImageDecoder ===
+        "undefined"
+    ) {
+
+        throw new Error(
+            "This browser does not support WebCodecs ImageDecoder. " +
+            "Use a recent Chrome or Edge browser for animated GIF/WebP decoding."
+        );
+    }
+
+    const buffer =
+        await blob.arrayBuffer();
+
+    /*
+     * Prefer the actual blob MIME.
+     */
+    let type =
+        normalizeMime(
+            blob.type
+        );
+
+    if (
+        !type ||
+        type === "application/octet-stream"
+    ) {
+        type =
+            normalizeMime(mime);
+    }
+
+    if (
+        !isAnimatedMime(type)
+    ) {
+
+        /*
+         * Last chance: detect from the actual file bytes.
+         */
+        type =
+            detectAnimatedMimeFromBytes(
+                buffer
+            );
+    }
+
+    if (
+        !isAnimatedMime(type)
+    ) {
+
+        throw new Error(
+            "The file was not recognized as a GIF or WebP. " +
+            "Detected MIME: " +
+            (type || "unknown")
+        );
+    }
+
+    /*
+     * Check browser support.
+     */
+    if (
+        typeof ImageDecoder.isTypeSupported ===
+        "function"
+    ) {
+
+        const supported =
+            await ImageDecoder.isTypeSupported(
+                type
+            );
+
+        if (!supported) {
+
+            throw new Error(
+                `This browser does not support ${type} through ImageDecoder.`
+            );
+        }
+    }
+
+    let decoder = null;
+
+    try {
+
+        decoder =
+            new ImageDecoder({
+                data: buffer,
+                type: type,
+                preferAnimation: true
+            });
+
+        /*
+         * IMPORTANT:
+         *
+         * The track list can become available separately
+         * from decoder.completed.
+         *
+         * Waiting for tracks.ready prevents:
+         *
+         * "No image track was found."
+         */
+        if (
+            decoder.tracks &&
+            decoder.tracks.ready
+        ) {
+
+            await decoder.tracks.ready;
+        }
+
+        /*
+         * Wait for decoder initialization.
+         */
+        await decoder.completed;
+
+        if (
+            token !== renderToken
+        ) {
+
+            throw new Error(
+                "Rendering stopped."
+            );
+        }
+
+        /*
+         * Get the selected track AFTER
+         * tracks.ready + completed.
+         */
+        const track =
+            decoder.tracks &&
+            decoder.tracks.selectedTrack;
+
+        if (!track) {
+
+            throw new Error(
+                "The browser decoded the file but did not expose an image track. " +
+                "The GIF/WebP may be invalid or this browser's ImageDecoder " +
+                "implementation may not support this animation."
+            );
+        }
+
+        const sourceWidth =
+            track.codedWidth ||
+            decoder.codedWidth;
+
+        const sourceHeight =
+            track.codedHeight ||
+            decoder.codedHeight;
+
+        if (
+            !sourceWidth ||
+            !sourceHeight
+        ) {
+
+            throw new Error(
+                "Could not determine the animated image dimensions."
+            );
+        }
+
+        let frameCount =
+            Number(
+                track.frameCount
+            );
+
+        if (
+            !Number.isFinite(frameCount) ||
+            frameCount < 1
+        ) {
+            frameCount = 1;
+        }
+
+        if (
+            frameCount >
+            MAX_ANIMATION_FRAMES
+        ) {
+
+            frameCount =
+                MAX_ANIMATION_FRAMES;
+
+            showWarning(
+                `Animation contains more than ` +
+                `${MAX_ANIMATION_FRAMES} frames. ` +
+                `Only the first ${MAX_ANIMATION_FRAMES} frames will be rendered.`
+            );
+        }
+
+        return {
+            decoder,
+            track,
+            sourceWidth,
+            sourceHeight,
+            frameCount,
+            mime: type
+        };
+
+    } catch (error) {
+
+        if (decoder) {
+
+            try {
+                decoder.close();
+            } catch (_) {
+                /* Ignore cleanup errors. */
+            }
+        }
+
+        throw error;
+    }
+}
+
+
+/* =========================================================
+   BYTE-LEVEL GIF / WEBP DETECTION
+   ========================================================= */
+
+function detectAnimatedMimeFromBytes(buffer) {
+
+    const bytes =
+        new Uint8Array(buffer);
+
+    /*
+     * GIF signature:
+     *
+     * GIF87a
+     * GIF89a
+     */
+    if (
+        bytes.length >= 6
+    ) {
+
+        const signature =
+            String.fromCharCode(
+                bytes[0],
+                bytes[1],
+                bytes[2],
+                bytes[3],
+                bytes[4],
+                bytes[5]
+            );
+
+        if (
+            signature === "GIF87a" ||
+            signature === "GIF89a"
+        ) {
+
+            return "image/gif";
+        }
+    }
+
+    /*
+     * WebP:
+     *
+     * RIFF....WEBP
+     */
+    if (
+        bytes.length >= 12
+    ) {
+
+        const riff =
+            String.fromCharCode(
+                bytes[0],
+                bytes[1],
+                bytes[2],
+                bytes[3]
+            );
+
+        const webp =
+            String.fromCharCode(
+                bytes[8],
+                bytes[9],
+                bytes[10],
+                bytes[11]
+            );
+
+        if (
+            riff === "RIFF" &&
+            webp === "WEBP"
+        ) {
+
+            return "image/webp";
+        }
+    }
+
+    return "";
+}
+
+
+/* =========================================================
+   VIDEO FRAME → CANVAS
+   ========================================================= */
+
+async function videoFrameToCanvas(
+    image,
+    width,
+    height
+) {
+
+    frameCanvas.width =
+        width;
+
+    frameCanvas.height =
+        height;
+
+    const ctx =
+        frameCanvas.getContext(
+            "2d",
+            {
+                willReadFrequently: true
+            }
+        );
+
+    ctx.clearRect(
+        0,
+        0,
+        width,
+        height
+    );
+
+    /*
+     * drawImage supports ImageBitmap
+     * and VideoFrame in modern browsers.
+     */
+    ctx.drawImage(
+        image,
+        0,
+        0,
+        width,
+        height
+    );
+
+    return ctx.getImageData(
+        0,
+        0,
+        width,
+        height
+    );
+}
+
+
+/* =========================================================
+   BINARY FRAME RENDERER
+   ========================================================= */
+
+function renderBinaryFrame(
+    imageData,
+    asciiWidth,
+    asciiHeight,
+    token
+) {
+
+    const outputWidth =
+        asciiWidth *
+        CHAR_WIDTH;
+
+    const outputHeight =
+        asciiHeight *
+        CHAR_HEIGHT;
+
+    previewCanvas.width =
+        outputWidth;
+
+    previewCanvas.height =
+        outputHeight;
+
+    const ctx =
+        previewCanvas.getContext(
+            "2d"
+        );
+
+    ctx.fillStyle =
+        "#000000";
+
+    ctx.fillRect(
+        0,
+        0,
+        outputWidth,
+        outputHeight
+    );
+
+    ctx.font =
+        `${FONT_SIZE}px "Courier New", monospace`;
+
+    ctx.textBaseline =
+        "top";
+
+    for (
+        let y = 0;
+        y < asciiHeight;
+        y++
+    ) {
+
+        if (
+            token !== renderToken
+        ) {
+
+            return false;
+        }
+
+        for (
+            let x = 0;
+            x < asciiWidth;
+            x++
+        ) {
+
+            const index =
+                (
+                    y *
+                    asciiWidth +
+                    x
+                ) * 4;
+
+            const r =
+                imageData.data[index];
+
+            const g =
+                imageData.data[index + 1];
+
+            const b =
+                imageData.data[index + 2];
+
+            const alpha =
+                imageData.data[index + 3];
+
+            /*
+             * ONLY fully transparent pixels
+             * remain blank.
+             */
+            if (
+                alpha === 0
+            ) {
+                continue;
+            }
+
+            const gray =
+                0.299 * r +
+                0.587 * g +
+                0.114 * b;
+
+            /*
+             * Every visible pixel is either 1 or 0.
+             */
+            const char =
+                gray < 128
+                    ? "1"
+                    : "0";
+
+            ctx.fillStyle =
+                `rgba(${r},${g},${b},${alpha / 255})`;
+
+            ctx.fillText(
+                char,
+                x * CHAR_WIDTH,
+                y * CHAR_HEIGHT
+            );
+        }
+    }
+
+    return true;
+}
+
+
+/* =========================================================
+   STATIC IMAGE
+   ========================================================= */
+
+async function renderStatic(
+    blob,
+    token
+) {
+
+    const bitmap =
+        await createImageBitmap(
+            blob
+        );
+
+    if (
+        token !== renderToken
+    ) {
+
+        bitmap.close();
+
+        return null;
+    }
+
+    const sourceWidth =
+        bitmap.width;
+
+    const sourceHeight =
+        bitmap.height;
+
+    const resolution =
+        calculateResolution(
+            sourceWidth,
+            sourceHeight,
+            qualitySelect.value,
+            false
+        );
+
+    const asciiWidth =
+        resolution.width;
+
+    const asciiHeight =
+        resolution.height;
+
+    sourceCanvas.width =
+        asciiWidth;
+
+    sourceCanvas.height =
+        asciiHeight;
+
+    const sourceCtx =
+        sourceCanvas.getContext(
+            "2d",
+            {
+                willReadFrequently: true
+            }
+        );
+
+    sourceCtx.clearRect(
+        0,
+        0,
+        asciiWidth,
+        asciiHeight
+    );
+
+    sourceCtx.drawImage(
+        bitmap,
+        0,
+        0,
+        asciiWidth,
+        asciiHeight
+    );
+
+    bitmap.close();
+
+    const imageData =
+        sourceCtx.getImageData(
+            0,
+            0,
+            asciiWidth,
+            asciiHeight
+        );
+
+    currentImageData =
+        imageData;
+
+    currentWidth =
+        asciiWidth;
+
+    currentHeight =
+        asciiHeight;
+
+    const outputPixels =
+        asciiWidth *
+        CHAR_WIDTH *
+        asciiHeight *
+        CHAR_HEIGHT;
+
+    if (
+        outputPixels >
+        MAX_OUTPUT_PIXELS
+    ) {
+
+        throw new Error(
+            "The requested HYPER resolution is too large for this browser."
+        );
+    }
+
+    placeholder.style.display =
+        "none";
+
+    previewCanvas.width =
+        asciiWidth *
+        CHAR_WIDTH;
+
+    previewCanvas.height =
+        asciiHeight *
+        CHAR_HEIGHT;
+
+    const ctx =
+        previewCanvas.getContext(
+            "2d"
+        );
+
+    ctx.fillStyle =
+        "#000";
+
+    ctx.fillRect(
+        0,
+        0,
+        previewCanvas.width,
+        previewCanvas.height
+    );
+
+    ctx.font =
+        `${FONT_SIZE}px "Courier New", monospace`;
+
+    ctx.textBaseline =
+        "top";
+
+    let row = 0;
+
+    while (
+        row < asciiHeight
+    ) {
+
+        if (
+            token !== renderToken
+        ) {
+
+            return null;
+        }
+
+        const end =
+            Math.min(
+                row + ROWS_PER_BATCH,
+                asciiHeight
+            );
+
+        for (
+            let y = row;
+            y < end;
+            y++
+        ) {
+
+            for (
+                let x = 0;
+                x < asciiWidth;
+                x++
+            ) {
+
+                const index =
+                    (
+                        y *
+                        asciiWidth +
+                        x
+                    ) * 4;
+
+                const r =
+                    imageData.data[index];
+
+                const g =
+                    imageData.data[index + 1];
+
+                const b =
+                    imageData.data[index + 2];
+
+                const alpha =
+                    imageData.data[index + 3];
+
+                if (
+                    alpha === 0
+                ) {
+                    continue;
+                }
+
+                const gray =
+                    0.299 * r +
+                    0.587 * g +
+                    0.114 * b;
+
+                const char =
+                    gray < 128
+                        ? "1"
+                        : "0";
+
+                ctx.fillStyle =
+                    `rgba(${r},${g},${b},${alpha / 255})`;
+
+                ctx.fillText(
+                    char,
+                    x * CHAR_WIDTH,
+                    y * CHAR_HEIGHT
+                );
+            }
+        }
+
+        row = end;
+
+        showProgress(
+            row /
+            asciiHeight *
+            100
+        );
+
+        setInfo(
+            `Rendering static image: ` +
+            `${Math.floor(
+                row / asciiHeight * 100
+            )}%`
+        );
+
+        await nextFrame();
+    }
+
+    fitCanvasToScreen();
+
+    return {
+        width: asciiWidth,
+        height: asciiHeight
+    };
+}
+
+
+/* =========================================================
+   ANIMATED FRAME
+   ========================================================= */
+
+async function renderAnimatedFrame(
+    image,
+    asciiWidth,
+    asciiHeight,
+    token
+) {
+
+    const imageData =
+        await videoFrameToCanvas(
+            image,
+            asciiWidth,
+            asciiHeight
+        );
+
+    if (
+        token !== renderToken
+    ) {
+
+        return false;
+    }
+
+    currentImageData =
+        imageData;
+
+    currentWidth =
+        asciiWidth;
+
+    currentHeight =
+        asciiHeight;
+
+    const success =
+        renderBinaryFrame(
+            imageData,
+            asciiWidth,
+            asciiHeight,
+            token
+        );
+
+    if (!success) {
+        return false;
+    }
+
+    placeholder.style.display =
+        "none";
+
+    fitCanvasToScreen();
+
+    return true;
+}
+
+
+/* =========================================================
+   ANIMATED GIF ENCODER
+   ========================================================= */
+
+async function encodeAnimatedGIF(
+    decoder,
+    frameCount,
+    sourceWidth,
+    sourceHeight,
+    token
+) {
+
+    const resolution =
+        calculateResolution(
+            sourceWidth,
+            sourceHeight,
+            qualitySelect.value,
+            true
+        );
+
+    const asciiWidth =
+        resolution.width;
+
+    const asciiHeight =
+        resolution.height;
+
+    const outputWidth =
+        asciiWidth *
+        CHAR_WIDTH;
+
+    const outputHeight =
+        asciiHeight *
+        CHAR_HEIGHT;
+
+    currentWidth =
+        asciiWidth;
+
+    currentHeight =
+        asciiHeight;
+
+    const gif =
+        new GIF({
+            workers: 2,
+            quality: 10,
+            width: outputWidth,
+            height: outputHeight,
+            workerScript: GIF_WORKER,
+            repeat: 0,
+            background: "#000000"
+        });
+
+    let totalDelay = 0;
+
+    try {
+
+        for (
+            let frameIndex = 0;
+            frameIndex < frameCount;
+            frameIndex++
+        ) {
+
+            if (
+                token !== renderToken
+            ) {
+
+                throw new Error(
+                    "Rendering stopped."
+                );
+            }
+
+            setInfo(
+                `Decoding frame ` +
+                `${frameIndex + 1} / ${frameCount}`
+            );
+
+            showProgress(
+                frameIndex /
+                frameCount *
+                70
+            );
+
+            let decoded;
+
+            try {
+
+                decoded =
+                    await decoder.decode({
+                        frameIndex,
+                        completeFramesOnly: true
+                    });
+
+            } catch (decodeError) {
+
+                throw new Error(
+                    `Could not decode animation frame ` +
+                    `${frameIndex + 1}: ` +
+                    `${decodeError.message || decodeError}`
+                );
+            }
+
+            const image =
+                decoded.image;
+
+            try {
+
+                const success =
+                    await renderAnimatedFrame(
+                        image,
+                        asciiWidth,
+                        asciiHeight,
+                        token
+                    );
+
+                if (!success) {
+
+                    throw new Error(
+                        "Rendering stopped."
+                    );
+                }
+
+                /*
+                 * WebCodecs duration is microseconds.
+                 */
+                let delay =
+                    decoded.duration
+                        ? decoded.duration / 1000
+                        : 100;
+
+                /*
+                 * GIF timing works in centiseconds.
+                 * Keep a minimum of 20 ms.
+                 */
+                delay =
+                    Math.max(
+                        20,
+                        Math.round(delay)
+                    );
+
+                totalDelay +=
+                    delay;
+
+                gif.addFrame(
+                    previewCanvas,
+                    {
+                        copy: true,
+                        delay
+                    }
+                );
+
+                currentPreviewFrame =
+                    previewCanvas;
+
+            } finally {
+
+                if (
+                    image &&
+                    typeof image.close ===
+                    "function"
+                ) {
+
+                    image.close();
+                }
+            }
+
+            showProgress(
+                70 +
+                (
+                    (frameIndex + 1) /
+                    frameCount
+                ) * 20
+            );
+
+            await nextFrame();
+        }
+
+    } finally {
+
+        /*
+         * Decoder is no longer needed once
+         * all frames have been submitted.
+         */
+        try {
+            decoder.close();
+        } catch (_) {
+            /* Ignore cleanup errors. */
+        }
+    }
+
+    if (
+        token !== renderToken
+    ) {
+
+        throw new Error(
+            "Rendering stopped."
+        );
+    }
+
+    setInfo(
+        "Encoding final GIF..."
+    );
+
+    showProgress(92);
+
+    const blob =
+        await new Promise(
+            (resolve, reject) => {
+
+                let finished = false;
+
+                gif.on(
+                    "finished",
+                    function (result) {
+
+                        finished = true;
+
+                        resolve(result);
+                    }
+                );
+
+                gif.on(
+                    "abort",
+                    function () {
+
+                        if (!finished) {
+
+                            reject(
+                                new Error(
+                                    "GIF encoding was aborted."
+                                )
+                            );
+                        }
+                    }
+                );
+
+                gif.on(
+                    "error",
+                    function (err) {
+
+                        if (!finished) {
+
+                            reject(
+                                err instanceof Error
+                                    ? err
+                                    : new Error(
+                                        String(err)
+                                    )
+                            );
+                        }
+                    }
+                );
+
+                gif.on(
+                    "progress",
+                    function (progress) {
+
+                        showProgress(
+                            92 +
+                            progress * 8
+                        );
+                    }
+                );
+
+                gif.render();
+            }
+        );
+
+    if (
+        token !== renderToken
+    ) {
+
+        throw new Error(
+            "Rendering stopped."
+        );
+    }
+
+    return {
+        blob,
+        width: outputWidth,
+        height: outputHeight,
+        frames: frameCount,
+        delay: totalDelay
+    };
+}
+
+
+/* =========================================================
+   SHOW GENERATED GIF
+   ========================================================= */
+
+function showGeneratedGIF(blob) {
+
+    if (
+        currentGifUrl
+    ) {
+
+        URL.revokeObjectURL(
+            currentGifUrl
+        );
+    }
+
+    currentGifBlob =
+        blob;
+
+    currentGifUrl =
+        URL.createObjectURL(
+            blob
+        );
+
+    gifPreview.src =
+        currentGifUrl;
+
+    downloadArea.style.display =
+        "block";
+
+    downloadBtn.style.display =
+        "inline-block";
+}
+
+
+/* =========================================================
+   MAIN PROCESS
+   ========================================================= */
+
+async function processImage() {
+
+    renderToken++;
+
+    const token =
+        renderToken;
+
+    convertBtn.disabled =
+        true;
+
+    stopBtn.style.display =
+        "inline-block";
+
+    downloadBtn.style.display =
+        "none";
+
+    copyBtn.style.display =
+        "none";
+
+    hideError();
+    hideWarning();
+    hideProgress();
+
+    if (
+        currentGifUrl
+    ) {
+
+        URL.revokeObjectURL(
+            currentGifUrl
+        );
+
+        currentGifUrl = null;
+    }
+
+    currentGifBlob = null;
+
+    downloadArea.style.display =
+        "none";
+
+    clearOutput();
+
+    try {
+
+        setInfo(
+            "Loading image..."
+        );
+
+        const input =
+            await getInputSource();
+
+        if (
+            token !== renderToken
+        ) {
+            return;
+        }
+
+        /*
+         * Determine whether this is GIF/WebP.
+         */
+        const animated =
+            isAnimatedImage(
+                input.blob,
+                input.mime,
+                imgUrl.value.trim()
+            );
+
+        /*
+         * Determine MIME for ImageDecoder.
+         */
+        let mime =
+            normalizeMime(
+                input.blob.type
+            );
+
+        if (
+            !isAnimatedMime(mime)
+        ) {
+            mime =
+                normalizeMime(
+                    input.mime
+                );
+        }
+
+        if (
+            !isAnimatedMime(mime)
+        ) {
+
+            const bytes =
+                await input.blob.arrayBuffer();
+
+            mime =
+                detectAnimatedMimeFromBytes(
+                    bytes
+                );
+        }
+
+        /* =================================================
+           ANIMATED GIF / WEBP
+           ================================================= */
+
+        if (animated) {
+
+            setInfo(
+                "Decoding animated image..."
+            );
+
+            const decoded =
+                await decodeAnimatedImage(
+                    input.blob,
+                    mime,
+                    token
+                );
+
+            if (
+                token !== renderToken
+            ) {
+
+                try {
+                    decoded.decoder.close();
+                } catch (_) {}
+
+                return;
+            }
+
+            const result =
+                await encodeAnimatedGIF(
+                    decoded.decoder,
+                    decoded.frameCount,
+                    decoded.sourceWidth,
+                    decoded.sourceHeight,
+                    token
+                );
+
+            if (
+                token !== renderToken
+            ) {
+                return;
+            }
+
+            showGeneratedGIF(
+                result.blob
+            );
+
+            fitCanvasToScreen();
+
+            setInfo(
+                `Complete — animated ` +
+                `${decoded.mime === "image/webp"
+                    ? "WebP"
+                    : "GIF"} → GIF | ` +
+                `${decoded.sourceWidth} × ` +
+                `${decoded.sourceHeight} source | ` +
+                `${currentWidth} × ` +
+                `${currentHeight} character cells | ` +
+                `${result.frames} frames`
+            );
+
+            copyBtn.style.display =
+                "inline-block";
+
+            showProgress(100);
+
+            await sleep(300);
+
+            hideProgress();
+
+            return;
+        }
+
+
+        /* =================================================
+           STATIC IMAGE
+           ================================================= */
+
+        const result =
+            await renderStatic(
+                input.blob,
+                token
+            );
+
+        if (
+            token !== renderToken ||
+            !result
+        ) {
+
+            return;
+        }
+
+        setInfo(
+            "Encoding static image as GIF..."
+        );
+
+        const gif =
+            new GIF({
+                workers: 2,
+                quality: 10,
+                width: previewCanvas.width,
+                height: previewCanvas.height,
+                workerScript: GIF_WORKER,
+                repeat: 0,
+                background: "#000000"
+            });
+
+        gif.addFrame(
+            previewCanvas,
+            {
+                copy: true,
+                delay: 1000
+            }
+        );
+
+        const blob =
+            await new Promise(
+                (resolve, reject) => {
+
+                    let finished = false;
+
+                    gif.on(
+                        "finished",
+                        function (result) {
+
+                            finished = true;
+
+                            resolve(result);
+                        }
+                    );
+
+                    gif.on(
+                        "error",
+                        function (err) {
+
+                            if (!finished) {
+
+                                reject(
+                                    err instanceof Error
+                                        ? err
+                                        : new Error(
+                                            String(err)
+                                        )
+                                );
+                            }
+                        }
+                    );
+
+                    gif.on(
+                        "progress",
+                        function (progress) {
+
+                            showProgress(
+                                progress * 100
+                            );
+                        }
+                    );
+
+                    gif.render();
+                }
+            );
+
+        if (
+            token !== renderToken
+        ) {
+            return;
+        }
+
+        showGeneratedGIF(
+            blob
+        );
+
+        setInfo(
+            `Complete — ` +
+            `${result.width} × ` +
+            `${result.height} character cells`
+        );
+
+        copyBtn.style.display =
+            "inline-block";
+
+        showProgress(100);
+
+        await sleep(300);
+
+        hideProgress();
+
+    } catch (err) {
+
+        console.error(
+            "Binary GIF conversion error:",
+            err
+        );
+
+        if (
+            token !== renderToken
+        ) {
+
+            return;
+        }
+
+        showError(
+            err?.message ||
+            "Something went wrong while processing the image."
+        );
+
+        setInfo(
+            "Processing failed."
+        );
+
+        hideProgress();
+
+    } finally {
+
+        if (
+            token === renderToken
+        ) {
+
+            convertBtn.disabled =
+                false;
+
+            stopBtn.style.display =
+                "none";
+        }
+    }
+}
+
+
+/* =========================================================
+   STOP
+   ========================================================= */
+
+function stopRendering() {
+
+    renderToken++;
+
+    setInfo(
+        "Rendering stopped."
+    );
+
+    convertBtn.disabled =
+        false;
+
+    stopBtn.style.display =
+        "none";
+
+    hideProgress();
+}
+
+
+/* =========================================================
+   DOWNLOAD GIF
+   ========================================================= */
+
+function downloadGIF() {
+
+    if (
+        !currentGifBlob ||
+        !currentGifUrl
+    ) {
+        return;
+    }
+
+    const a =
+        document.createElement("a");
+
+    a.href =
+        currentGifUrl;
+
+    a.download =
+        "binary-art.gif";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    a.remove();
+}
+
+
+/* =========================================================
+   COPY CURRENT FRAME
+   ========================================================= */
+
+async function copyCurrentFrame() {
+
+    if (
+        !currentImageData ||
+        currentWidth <= 0 ||
+        currentHeight <= 0
+    ) {
+        return;
+    }
+
+    const lines = [];
+
+    for (
+        let y = 0;
+        y < currentHeight;
+        y++
+    ) {
+
+        let line = "";
+
+        for (
+            let x = 0;
+            x < currentWidth;
+            x++
+        ) {
+
+            const index =
+                (
+                    y *
+                    currentWidth +
+                    x
+                ) * 4;
+
+            const alpha =
+                currentImageData.data[
+                    index + 3
+                ];
+
+            /*
+             * ONLY fully transparent pixels
+             * are blank.
+             */
+            if (
+                alpha === 0
+            ) {
+
+                line += " ";
+
+                continue;
+            }
+
+            const r =
+                currentImageData.data[
+                    index
+                ];
+
+            const g =
+                currentImageData.data[
+                    index + 1
+                ];
+
+            const b =
+                currentImageData.data[
+                    index + 2
+                ];
+
+            const gray =
+                0.299 * r +
+                0.587 * g +
+                0.114 * b;
+
+            line +=
+                gray < 128
+                    ? "1"
+                    : "0";
+        }
+
+        lines.push(line);
+    }
+
+    try {
+
+        await navigator.clipboard.writeText(
+            lines.join("\n")
+        );
+
+        setInfo(
+            "Current frame copied as text."
+        );
+
+    } catch (err) {
+
+        /*
+         * Fallback for browsers that don't
+         * permit navigator.clipboard.
+         */
+        try {
+
+            const textarea =
+                document.createElement("textarea");
+
+            textarea.value =
+                lines.join("\n");
+
+            textarea.style.position =
+                "fixed";
+
+            textarea.style.opacity =
+                "0";
+
+            document.body.appendChild(
+                textarea
+            );
+
+            textarea.select();
+
+            document.execCommand(
+                "copy"
+            );
+
+            textarea.remove();
+
+            setInfo(
+                "Current frame copied as text."
+            );
+
+        } catch (_) {
+
+            showError(
+                "Clipboard access failed."
+            );
+        }
+    }
+}
+
+
+/* =========================================================
+   RESIZE
+   ========================================================= */
+
+window.addEventListener(
+    "resize",
+    function () {
+        fitCanvasToScreen();
+    }
+);
+
+
+/* =========================================================
+   EVENTS
+   ========================================================= */
+
+convertBtn.addEventListener(
+    "click",
+    processImage
+);
+
+
+stopBtn.addEventListener(
+    "click",
+    stopRendering
+);
+
+
+downloadBtn.addEventListener(
+    "click",
+    downloadGIF
+);
+
+
+copyBtn.addEventListener(
+    "click",
+    copyCurrentFrame
+);
+
+
+imgUrl.addEventListener(
+    "keydown",
+    function (event) {
+
+        if (
+            event.key === "Enter"
+        ) {
+
+            processImage();
+        }
+    }
+);
+
+
+fileInput.addEventListener(
+    "change",
+    function () {
+
+        if (
+            fileInput.files.length
+        ) {
+
+            imgUrl.value = "";
+
+            setInfo(
+                `Selected: ${fileInput.files[0].name}`
+            );
+        }
+    }
+);
+
+
+/* =========================================================
+   INITIAL STATE
+   ========================================================= */
+
+clearOutput();
+
+</script>
+
+</body>
+</html>
